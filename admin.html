@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — PUMSA Funding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a href="admin.html" class="word">PUMSA <span>Funding</span> <span class="mono small" style="color:var(--paper-dim)">/ admin</span></a>
+  <div class="who">
+    <button class="btn-ghost" style="cursor:pointer; font-family:var(--sans); font-size:0.8rem;" id="toggleRoster">Board roster</button>
+    <button class="btn-ghost" style="cursor:pointer; font-family:var(--sans); font-size:0.8rem;" onclick="Session_.logout()">Log out</button>
+  </div>
+</div>
+
+<div class="wrap-wide">
+  <h1 style="margin-top:8px;">All requests</h1>
+  <div id="errorBox" class="error-box" style="display:none;"></div>
+
+  <div id="rosterCard" class="card" style="display:none; margin-bottom:24px;">
+    <h3>Board members</h3>
+    <div class="row3" style="align-items:end;">
+      <div class="field" style="margin-bottom:0;"><label>Name</label><input type="text" id="newName"></div>
+      <div class="field" style="margin-bottom:0;"><label>Code</label><input type="text" id="newCode" placeholder="e.g. sp1282"></div>
+      <div class="field" style="margin-bottom:0;"><label>Email (for reminders)</label><input type="email" id="newEmail"></div>
+    </div>
+    <button class="btn btn-outline" id="addMemberBtn" style="margin-top:12px;">+ Add board member</button>
+    <div id="rosterError" class="error-box" style="display:none; margin-top:14px;"></div>
+    <table class="admin-table" style="margin-top:18px;">
+      <thead><tr><th>Name</th><th>Code</th><th>Email</th><th>Status</th><th></th></tr></thead>
+      <tbody id="rosterBody"></tbody>
+    </table>
+  </div>
+
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="Search event or requester...">
+    <select id="statusFilter">
+      <option value="">All statuses</option>
+      <option>Not Yet Requested</option>
+      <option>Requested</option>
+      <option>Approved</option>
+      <option>Denied</option>
+      <option>Too Late to Request</option>
+    </select>
+  </div>
+
+  <div class="eyebrow">Needs to be requested <span class="count" id="cnt-needs"></span></div>
+  <div class="entry-list" id="list-needs"></div>
+
+  <div class="eyebrow">Requested — upcoming <span class="count" id="cnt-upcoming"></span></div>
+  <div class="entry-list" id="list-upcoming"></div>
+
+  <div class="eyebrow">Past events <span class="count" id="cnt-past"></span></div>
+  <div class="entry-list" id="list-past"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/funding-rules.js"></script>
+<script src="js/entries.js"></script>
+<script>
+const admin = Session_.requireAdmin();
+let allRequests = [];
+let allMembers = [];
+const STATUS_OPTIONS = ['Not Yet Requested', 'Requested', 'Approved', 'Denied', 'Too Late to Request'];
+
+document.getElementById('toggleRoster').onclick = () => {
+  const el = document.getElementById('rosterCard');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+};
+
+function showError(msg) { const e = document.getElementById('errorBox'); e.textContent = msg; e.style.display = 'block'; }
+
+async function loadAll() {
+  try {
+    const [reqRes, memRes] = await Promise.all([
+      callApi('getAllRequests', admin),
+      callApi('getBoardMembers', admin),
+    ]);
+    allRequests = reqRes.requests;
+    allMembers = memRes.members;
+    renderRoster();
+    applyFiltersAndRender();
+  } catch (e) {
+    showError(e.message);
+  }
+}
+
+// ---------- Roster ----------
+
+function renderRoster() {
+  document.getElementById('rosterBody').innerHTML = allMembers.map(m => `
+    <tr>
+      <td>${escapeHtml(m.Name)}</td>
+      <td class="mono">${escapeHtml(m.Code)}</td>
+      <td>${escapeHtml(m.Email || '—')}</td>
+      <td>${m.Active === false || m.Active === 'FALSE' ? '<span class="stamp stamp-toolate">inactive</span>' : '<span class="stamp stamp-approved">active</span>'}</td>
+      <td><button class="link-btn" data-code="${escapeHtml(m.Code)}" data-active="${!(m.Active === false || m.Active === 'FALSE')}" onclick="toggleActive(this)">${m.Active === false || m.Active === 'FALSE' ? 'reactivate' : 'deactivate'}</button></td>
+    </tr>
+  `).join('');
+}
+
+async function toggleActive(btn) {
+  const code = btn.dataset.code;
+  const nowActive = btn.dataset.active === 'true';
+  try {
+    await callApi('setMemberActive', Object.assign({ code, active: !nowActive }, admin));
+    await loadAll();
+  } catch (e) { showError(e.message); }
+}
+
+document.getElementById('addMemberBtn').onclick = async () => {
+  const name = document.getElementById('newName').value.trim();
+  const code = document.getElementById('newCode').value.trim();
+  const email = document.getElementById('newEmail').value.trim();
+  const errBox = document.getElementById('rosterError');
+  errBox.style.display = 'none';
+  if (!name || !code) { errBox.textContent = 'Name and code are required.'; errBox.style.display = 'block'; return; }
+  try {
+    await callApi('addBoardMember', Object.assign({ name, code, email }, admin));
+    document.getElementById('newName').value = '';
+    document.getElementById('newCode').value = '';
+    document.getElementById('newEmail').value = '';
+    await loadAll();
+  } catch (e) { errBox.textContent = e.message; errBox.style.display = 'block'; }
+};
+
+// ---------- Requests list ----------
+
+document.getElementById('searchInput').addEventListener('input', applyFiltersAndRender);
+document.getElementById('statusFilter').addEventListener('change', applyFiltersAndRender);
+
+function applyFiltersAndRender() {
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const statusF = document.getElementById('statusFilter').value;
+  const filtered = allRequests.filter(r => {
+    if (statusF && r.status !== statusF) return false;
+    if (q && !(r.eventName.toLowerCase().includes(q) || r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  render(groupRequests(filtered));
+}
+
+function section(listId, countId, items, emptyMsg, deadlineNote) {
+  document.getElementById(countId).textContent = items.length ? '(' + items.length + ')' : '';
+  const el = document.getElementById(listId);
+  if (!items.length) { el.innerHTML = '<div class="empty-note">' + emptyMsg + '</div>'; return; }
+  el.innerHTML = items.map(r => `
+    <div>
+      <div class="entry" style="cursor:pointer;" onclick="toggleDetail('${r.id}')">${renderEntryHTML(r, { deadlineNote, showRequester: true })}</div>
+      <div id="detail-${r.id}" style="display:none; padding:16px 4px 24px 4px; border-bottom:1px solid var(--line);"></div>
+    </div>
+  `).join('');
+}
+
+function render(groups) {
+  section('list-needs', 'cnt-needs', groups.needsAction, 'Nothing pending.', true);
+  section('list-upcoming', 'cnt-upcoming', groups.upcoming, 'Nothing here.', false);
+  section('list-past', 'cnt-past', groups.past, 'No past events yet.', false);
+}
+
+function toggleDetail(id) {
+  const el = document.getElementById('detail-' + id);
+  const open = el.style.display === 'block';
+  document.querySelectorAll('[id^="detail-"]').forEach(d => d.style.display = 'none');
+  if (open) return;
+  const r = allRequests.find(x => x.id === id);
+  el.innerHTML = detailHTML(r);
+  el.style.display = 'block';
+  document.getElementById('status-' + id).addEventListener('change', e => changeStatus(id, e.target.value));
+}
+
+function detailHTML(r) {
+  const itemsHTML = r.items.map(it => `<div class="between small"><span>${escapeHtml(it.desc)}</span><span class="mono">${fmtMoney(it.amount)}</span></div>`).join('');
+  const sourcesHTML = r.fundingSources.map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('');
+  const photoHTML = r.photoUrl ? `<p class="small"><a href="${r.photoUrl}" target="_blank" rel="noopener">View uploaded photo →</a></p>` : `<p class="small">No photo uploaded yet.</p>`;
+  return `
+    <div class="row2">
+      <div>
+        <p class="small" style="margin-bottom:6px;"><strong>Agenda</strong></p>
+        <p class="small">${escapeHtml(r.agenda) || '—'}</p>
+        <p class="small" style="margin-bottom:6px;"><strong>Itemized costs</strong></p>
+        ${itemsHTML}
+        <p class="small" style="margin-top:10px;"><strong>Funding sources</strong><br>${sourcesHTML}</p>
+      </div>
+      <div>
+        <div class="field">
+          <label>Status</label>
+          <select id="status-${r.id}">
+            ${STATUS_OPTIONS.map(s => `<option ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        ${photoHTML}
+      </div>
+    </div>
+  `;
+}
+
+async function changeStatus(id, status) {
+  try {
+    await callApi('updateStatus', Object.assign({ id, status }, admin));
+    const r = allRequests.find(x => x.id === id);
+    r.status = status;
+    applyFiltersAndRender();
+  } catch (e) { showError(e.message); }
+}
+
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+loadAll();
+</script>
+</body>
+</html>

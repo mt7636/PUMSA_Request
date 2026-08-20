@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Requests — PUMSA Funding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a href="member.html" class="word">PUMSA <span>Funding</span></a>
+  <div class="who">
+    <span id="whoName"></span>
+    <button class="btn-ghost" style="cursor:pointer; font-family:var(--sans); font-size:0.8rem;" onclick="Session_.logout()">Log out</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="between" style="margin-top:8px;">
+    <h1 style="margin:0;">My requests</h1>
+    <a href="request.html" class="btn btn-primary">+ New request</a>
+  </div>
+
+  <div id="errorBox" class="error-box" style="display:none; margin-top:20px;"></div>
+
+  <div class="eyebrow">Needs to be requested <span class="count" id="cnt-needs"></span></div>
+  <div class="entry-list" id="list-needs"></div>
+
+  <div class="eyebrow">Requested — upcoming <span class="count" id="cnt-upcoming"></span></div>
+  <div class="entry-list" id="list-upcoming"></div>
+
+  <div class="eyebrow">Past events <span class="count" id="cnt-past"></span></div>
+  <div class="entry-list" id="list-past"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/funding-rules.js"></script>
+<script src="js/entries.js"></script>
+<script>
+const session = Session_.requireMember();
+document.getElementById('whoName').textContent = session.name + ' (' + session.code + ')';
+
+async function load() {
+  try {
+    const res = await callApi('getMyRequests', { code: session.code });
+    render(groupRequests(res.requests));
+  } catch (e) {
+    document.getElementById('errorBox').textContent = e.message;
+    document.getElementById('errorBox').style.display = 'block';
+  }
+}
+
+function section(listId, countId, items, emptyMsg, deadlineNote) {
+  document.getElementById(countId).textContent = items.length ? '(' + items.length + ')' : '';
+  const el = document.getElementById(listId);
+  if (!items.length) { el.innerHTML = '<div class="empty-note">' + emptyMsg + '</div>'; return; }
+  el.innerHTML = items.map(r =>
+    `<a class="entry" href="request.html?id=${encodeURIComponent(r.id)}">${renderEntryHTML(r, { deadlineNote })}</a>`
+  ).join('');
+}
+
+function render(groups) {
+  section('list-needs', 'cnt-needs', groups.needsAction, 'Nothing waiting on you — nice.', true);
+  section('list-upcoming', 'cnt-upcoming', groups.upcoming, 'No upcoming requested events yet.', false);
+  section('list-past', 'cnt-past', groups.past, 'No past events yet.', false);
+}
+
+load();
+</script>
+</body>
+</html>

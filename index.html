@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PUMSA Funding Requests</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="centered-screen">
+  <div style="width:100%; max-width:420px;">
+    <div style="text-align:center; margin-bottom:28px;">
+      <h1 style="margin-bottom:4px;">PUMSA <span style="color:var(--orange)">Funding</span></h1>
+      <p style="margin:0;">Event funding requests for the board</p>
+    </div>
+
+    <div class="card">
+      <div id="errorBox" class="error-box" style="display:none;"></div>
+
+      <div id="memberPanel">
+        <div class="field">
+          <label for="codeInput">Your board code</label>
+          <input type="text" id="codeInput" placeholder="e.g. sp1282" autocomplete="off" autocapitalize="off">
+        </div>
+        <button class="btn btn-primary btn-full" id="memberLoginBtn">Log in</button>
+
+        <p class="small" style="text-align:center; margin-top:18px;">
+          Board member? Use your code above.<br>
+          <button class="link-btn" id="showAdmin">E-board admin login →</button>
+        </p>
+      </div>
+
+      <div id="adminPanel" style="display:none;">
+        <div class="field">
+          <label for="adminUser">Admin username</label>
+          <input type="text" id="adminUser" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="adminPass">Admin password</label>
+          <input type="password" id="adminPass">
+        </div>
+        <button class="btn btn-primary btn-full" id="adminLoginBtn">Log in as admin</button>
+        <p class="small" style="text-align:center; margin-top:18px;">
+          <button class="link-btn" id="showMember">← Back to board member login</button>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+const memberPanel = document.getElementById('memberPanel');
+const adminPanel = document.getElementById('adminPanel');
+const errorBox = document.getElementById('errorBox');
+
+document.getElementById('showAdmin').onclick = () => { memberPanel.style.display = 'none'; adminPanel.style.display = 'block'; errorBox.style.display = 'none'; };
+document.getElementById('showMember').onclick = () => { adminPanel.style.display = 'none'; memberPanel.style.display = 'block'; errorBox.style.display = 'none'; };
+
+function showError(msg) { errorBox.textContent = msg; errorBox.style.display = 'block'; }
+
+async function doMemberLogin() {
+  const code = document.getElementById('codeInput').value.trim();
+  if (!code) return showError('Enter your code.');
+  const btn = document.getElementById('memberLoginBtn');
+  btn.disabled = true; btn.textContent = 'Checking...';
+  try {
+    const res = await callApi('memberLogin', { code });
+    Session_.setMember(res.code, res.name);
+    window.location.href = 'member.html';
+  } catch (e) {
+    showError(e.message);
+    btn.disabled = false; btn.textContent = 'Log in';
+  }
+}
+
+async function doAdminLogin() {
+  const username = document.getElementById('adminUser').value.trim();
+  const password = document.getElementById('adminPass').value;
+  if (!username || !password) return showError('Enter the admin username and password.');
+  const btn = document.getElementById('adminLoginBtn');
+  btn.disabled = true; btn.textContent = 'Checking...';
+  try {
+    await callApi('adminLogin', { username, password });
+    Session_.setAdmin(username, password);
+    window.location.href = 'admin.html';
+  } catch (e) {
+    showError(e.message);
+    btn.disabled = false; btn.textContent = 'Log in as admin';
+  }
+}
+
+document.getElementById('memberLoginBtn').onclick = doMemberLogin;
+document.getElementById('adminLoginBtn').onclick = doAdminLogin;
+document.getElementById('codeInput').addEventListener('keydown', e => { if (e.key === 'Enter') doMemberLogin(); });
+document.getElementById('adminPass').addEventListener('keydown', e => { if (e.key === 'Enter') doAdminLogin(); });
+</script>
+</body>
+</html>

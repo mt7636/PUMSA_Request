@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Funding Request — PUMSA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <a href="member.html" class="word">PUMSA <span>Funding</span></a>
+  <div class="who">
+    <span id="whoName"></span>
+    <button class="btn-ghost" style="cursor:pointer; font-family:var(--sans); font-size:0.8rem;" onclick="Session_.logout()">Log out</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div style="margin-top:8px; margin-bottom:20px;">
+    <a href="member.html" class="small">← Back to my requests</a>
+  </div>
+
+  <h1 id="pageTitle">New funding request</h1>
+
+  <div id="errorBox" class="error-box" style="display:none;"></div>
+  <div id="lockedBox" class="info-box" style="display:none;"></div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="field">
+      <label for="eventName">Event name</label>
+      <input type="text" id="eventName" placeholder="e.g. Eid Banquet">
+    </div>
+
+    <div class="row3">
+      <div class="field">
+        <label for="eventDate">Event date</label>
+        <input type="date" id="eventDate">
+      </div>
+      <div class="field">
+        <label for="startTime">Start time</label>
+        <input type="time" id="startTime">
+      </div>
+      <div class="field">
+        <label for="endTime">End time</label>
+        <input type="time" id="endTime">
+      </div>
+    </div>
+
+    <div id="deadlinePreview" class="info-box" style="display:none;"></div>
+
+    <div class="field">
+      <label for="agenda">Short agenda</label>
+      <textarea id="agenda" placeholder="What's happening, briefly — e.g. 6:00 doors open, 6:30 dinner, 7:15 speaker, 8:00 close"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Itemized costs</label>
+      <div id="itemRows"></div>
+      <button class="btn btn-outline" id="addItemBtn" type="button" style="margin-top:6px;">+ Add item</button>
+      <div class="item-total"><span>Total</span><span class="amt" id="itemTotal">$0</span></div>
+      <div class="hint">Example: $500 for 50 sliders, $50 for tablecloths, $200 for a speaker honorarium → $750 total.</div>
+    </div>
+
+    <div class="field">
+      <label>Funding sources</label>
+      <div class="source-list" id="sourceList"></div>
+      <div class="hint">Projects Board is applied to every request automatically. Others are pulled from the <a href="https://usg.princeton.edu/projectsboardclubfunding" target="_blank" rel="noopener">Projects Board funding page</a> — check eligibility there before relying on the auto-suggestion.</div>
+    </div>
+
+    <button class="btn btn-primary btn-full" id="saveBtn">Save request</button>
+  </div>
+
+  <div class="card" id="photoCard" style="display:none;">
+    <h3>Event photo</h3>
+    <p class="small">Once the event has happened, upload a photo here for the record.</p>
+    <div id="existingPhoto"></div>
+    <input type="file" id="photoInput" accept="image/*" style="margin-top:10px;">
+    <button class="btn btn-outline" id="uploadBtn" style="margin-top:10px;">Upload photo</button>
+  </div>
+
+  <div class="card" id="deleteCard" style="display:none; margin-top:20px;">
+    <button class="btn btn-danger btn-full" id="deleteBtn">Delete this request</button>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/funding-rules.js"></script>
+<script>
+const session = Session_.requireMember();
+document.getElementById('whoName').textContent = session.name + ' (' + session.code + ')';
+
+const params = new URLSearchParams(window.location.search);
+const requestId = params.get('id');
+
+let items = [{ desc: '', amount: '' }];
+let selectedSources = new Set(['Projects Board']);
+let alcoholTouchedManually = false;
+let existing = null;
+let editable = true;
+
+function showError(msg) { const e = document.getElementById('errorBox'); e.textContent = msg; e.style.display = 'block'; }
+
+// ---------- Itemized cost rows ----------
+
+function renderItemRows() {
+  const el = document.getElementById('itemRows');
+  el.innerHTML = items.map((it, i) => `
+    <div class="item-row">
+      <input type="text" placeholder="Description" data-idx="${i}" class="item-desc" value="${escapeHtml(it.desc)}" ${editable ? '' : 'disabled'}>
+      <input type="number" placeholder="0.00" min="0" step="0.01" data-idx="${i}" class="item-amt" value="${it.amount}" ${editable ? '' : 'disabled'}>
+      <button type="button" class="btn-ghost" data-idx="${i}" onclick="removeItem(${i})" ${editable ? '' : 'disabled'} style="cursor:pointer;">✕</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('.item-desc').forEach(inp => inp.addEventListener('input', e => { items[e.target.dataset.idx].desc = e.target.value; }));
+  el.querySelectorAll('.item-amt').forEach(inp => inp.addEventListener('input', e => { items[e.target.dataset.idx].amount = e.target.value; updateTotal(); }));
+  updateTotal();
+}
+
+function removeItem(i) {
+  if (items.length === 1) return;
+  items.splice(i, 1);
+  renderItemRows();
+}
+
+function addItem() { items.push({ desc: '', amount: '' }); renderItemRows(); }
+
+function currentTotal() { return items.reduce((s, it) => s + (Number(it.amount) || 0), 0); }
+
+function updateTotal() {
+  document.getElementById('itemTotal').textContent = fmtMoney0(currentTotal());
+  updateDeadlinePreview();
+  renderSources();
+}
+
+function fmtMoney0(n) { return '$' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }); }
+
+// ---------- Funding sources ----------
+
+function renderSources() {
+  const dateVal = document.getElementById('eventDate').value;
+  const startVal = document.getElementById('startTime').value;
+  const endVal = document.getElementById('endTime').value;
+
+  if (!alcoholTouchedManually && dateVal && startVal) {
+    if (suggestsAlcoholInitiative(dateVal, startVal, endVal)) selectedSources.add('Alcohol Initiative');
+    else selectedSources.delete('Alcohol Initiative');
+  }
+
+  const el = document.getElementById('sourceList');
+  el.innerHTML = FUNDING_SOURCES.map(src => {
+    const checked = selectedSources.has(src.id);
+    const isSuggested = src.auto && checked && !alcoholTouchedManually;
+    const cls = src.locked ? 'locked' : (isSuggested ? 'suggested' : '');
+    return `
+      <label class="source-item ${cls}">
+        <input type="checkbox" data-id="${src.id}" ${checked ? 'checked' : ''} ${src.locked || !editable ? 'disabled' : ''}>
+        <div>
+          <div class="label">${src.label}${isSuggested ? ' — suggested' : ''}</div>
+          <div class="note">${src.note}</div>
+        </div>
+      </label>
+    `;
+  }).join('');
+  el.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', e => {
+    const id = e.target.dataset.id;
+    if (id === 'Alcohol Initiative') alcoholTouchedManually = true;
+    if (e.target.checked) selectedSources.add(id); else selectedSources.delete(id);
+  }));
+}
+
+// ---------- Deadline preview ----------
+
+function updateDeadlinePreview() {
+  const box = document.getElementById('deadlinePreview');
+  const dateVal = document.getElementById('eventDate').value;
+  if (!dateVal) { box.style.display = 'none'; return; }
+  const info = computeDeadlineInfo(dateVal, currentTotal());
+  box.style.display = 'block';
+  if (info.tooLate) {
+    box.className = 'error-box';
+    box.textContent = `This event may be too soon for Projects Board's standard lead time (${info.leadWeeks} weeks after the meeting for a ${fmtMoney0(currentTotal())} request). Contact Projects Board directly, or pick a later date.`;
+  } else {
+    box.className = 'info-box';
+    box.textContent = `Submit by ${fmtDateTime(info.deadline)} to be considered at the ${fmtDate(info.meetingDate)} Projects Board meeting.`;
+  }
+}
+
+// ---------- Load existing (edit/view mode) ----------
+
+async function loadExisting() {
+  try {
+    const res = await callApi('getMyRequests', { code: session.code });
+    existing = res.requests.find(r => r.id === requestId);
+    if (!existing) { showError('Request not found.'); return; }
+
+    document.getElementById('pageTitle').textContent = existing.eventName;
+    document.getElementById('eventName').value = existing.eventName;
+    document.getElementById('eventDate').value = existing.eventDate;
+    document.getElementById('startTime').value = existing.startTime;
+    document.getElementById('endTime').value = existing.endTime;
+    document.getElementById('agenda').value = existing.agenda;
+    items = existing.items.length ? existing.items.map(it => ({ desc: it.desc, amount: it.amount })) : [{ desc: '', amount: '' }];
+    selectedSources = new Set(existing.fundingSources);
+    alcoholTouchedManually = true; // don't auto-override a saved selection
+
+    editable = existing.status === 'Not Yet Requested';
+    if (!editable) {
+      document.getElementById('lockedBox').style.display = 'block';
+      document.getElementById('lockedBox').textContent = `This request is "${existing.status}" and can no longer be edited.`;
+      document.getElementById('eventName').disabled = true;
+      document.getElementById('eventDate').disabled = true;
+      document.getElementById('startTime').disabled = true;
+      document.getElementById('endTime').disabled = true;
+      document.getElementById('agenda').disabled = true;
+      document.getElementById('saveBtn').style.display = 'none';
+    } else {
+      document.getElementById('deleteCard').style.display = 'block';
+    }
+
+    renderItemRows();
+    renderSources();
+    updateDeadlinePreview();
+    setupPhotoSection();
+  } catch (e) {
+    showError(e.message);
+  }
+}
+
+// ---------- Photo upload ----------
+
+function setupPhotoSection() {
+  if (!existing) return;
+  const eventDate = new Date(existing.eventDate + 'T00:00:00');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (eventDate >= today) return; // event hasn't happened yet
+
+  document.getElementById('photoCard').style.display = 'block';
+  if (existing.photoUrl) {
+    document.getElementById('existingPhoto').innerHTML = `<p class="small">Photo already uploaded:</p><a href="${existing.photoUrl}" target="_blank" rel="noopener">${existing.photoUrl}</a>`;
+  }
+}
+
+document.getElementById('uploadBtn').onclick = async () => {
+  const file = document.getElementById('photoInput').files[0];
+  if (!file) return showError('Choose a photo first.');
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled = true; btn.textContent = 'Uploading...';
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const res = await callApi('uploadPhoto', { code: session.code, id: requestId, dataUrl });
+    document.getElementById('existingPhoto').innerHTML = `<p class="small">Uploaded!</p><a href="${res.photoUrl}" target="_blank" rel="noopener">${res.photoUrl}</a>`;
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Upload photo';
+  }
+};
+
+// ---------- Save / delete ----------
+
+async function save() {
+  const eventName = document.getElementById('eventName').value.trim();
+  const eventDate = document.getElementById('eventDate').value;
+  const startTime = document.getElementById('startTime').value;
+  const endTime = document.getElementById('endTime').value;
+  const agenda = document.getElementById('agenda').value.trim();
+  const cleanItems = items.filter(it => it.desc.trim() !== '' || it.amount !== '').map(it => ({ desc: it.desc.trim(), amount: Number(it.amount) || 0 }));
+
+  if (!eventName || !eventDate || !startTime || !endTime) return showError('Fill in the event name, date, and start/end time.');
+  if (!cleanItems.length) return showError('Add at least one itemized cost.');
+
+  const payload = {
+    code: session.code, eventName, eventDate, startTime, endTime, agenda,
+    items: cleanItems, fundingSources: Array.from(selectedSources),
+  };
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    if (requestId) {
+      await callApi('updateRequest', Object.assign({ id: requestId }, payload));
+    } else {
+      await callApi('submitRequest', payload);
+    }
+    window.location.href = 'member.html';
+  } catch (e) {
+    showError(e.message);
+    btn.disabled = false; btn.textContent = 'Save request';
+  }
+}
+
+document.getElementById('deleteBtn').onclick = async () => {
+  if (!confirm('Delete this request? This cannot be undone.')) return;
+  try {
+    await callApi('deleteRequest', { code: session.code, id: requestId });
+    window.location.href = 'member.html';
+  } catch (e) {
+    showError(e.message);
+  }
+};
+
+document.getElementById('addItemBtn').onclick = addItem;
+document.getElementById('saveBtn').onclick = save;
+['eventDate', 'startTime', 'endTime'].forEach(id => document.getElementById(id).addEventListener('input', () => { updateDeadlinePreview(); renderSources(); }));
+
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+// ---------- Init ----------
+
+if (requestId) {
+  loadExisting();
+} else {
+  renderItemRows();
+  renderSources();
+}
+</script>
+</body>
+</html>
