@@ -74,7 +74,7 @@ function section(listId, countId, items, emptyMsg, deadlineNote) {
 }
 
 function render(groups) {
-  section('list-needs', 'cnt-needs', groups.needsAction, 'Nothing waiting on you — nice.', true);
+  section('list-needs', 'cnt-needs', groups.needsAction, 'Nothing waiting on you', true);
   section('list-upcoming', 'cnt-upcoming', groups.upcoming, 'No upcoming requested events yet.', false);
   section('list-past', 'cnt-past', groups.past, 'No past events yet.', false);
 }
