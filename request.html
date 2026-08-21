@@ -64,12 +64,6 @@
       <div class="hint">Example: $500 for 50 sliders, $50 for tablecloths, $200 for a speaker honorarium → $750 total.</div>
     </div>
 
-    <div class="field">
-      <label>Funding sources</label>
-      <div class="source-list" id="sourceList"></div>
-      <div class="hint">Projects Board is applied to every request automatically. Others are pulled from the <a href="https://usg.princeton.edu/projectsboardclubfunding" target="_blank" rel="noopener">Projects Board funding page</a> — check eligibility there before relying on the auto-suggestion.</div>
-    </div>
-
     <button class="btn btn-primary btn-full" id="saveBtn">Save request</button>
   </div>
 
@@ -97,8 +91,6 @@ const params = new URLSearchParams(window.location.search);
 const requestId = params.get('id');
 
 let items = [{ desc: '', amount: '' }];
-let selectedSources = new Set(['Projects Board']);
-let alcoholTouchedManually = false;
 let existing = null;
 let editable = true;
 
@@ -133,44 +125,9 @@ function currentTotal() { return items.reduce((s, it) => s + (Number(it.amount) 
 function updateTotal() {
   document.getElementById('itemTotal').textContent = fmtMoney0(currentTotal());
   updateDeadlinePreview();
-  renderSources();
 }
 
 function fmtMoney0(n) { return '$' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }); }
-
-// ---------- Funding sources ----------
-
-function renderSources() {
-  const dateVal = document.getElementById('eventDate').value;
-  const startVal = document.getElementById('startTime').value;
-  const endVal = document.getElementById('endTime').value;
-
-  if (!alcoholTouchedManually && dateVal && startVal) {
-    if (suggestsAlcoholInitiative(dateVal, startVal, endVal)) selectedSources.add('Alcohol Initiative');
-    else selectedSources.delete('Alcohol Initiative');
-  }
-
-  const el = document.getElementById('sourceList');
-  el.innerHTML = FUNDING_SOURCES.map(src => {
-    const checked = selectedSources.has(src.id);
-    const isSuggested = src.auto && checked && !alcoholTouchedManually;
-    const cls = src.locked ? 'locked' : (isSuggested ? 'suggested' : '');
-    return `
-      <label class="source-item ${cls}">
-        <input type="checkbox" data-id="${src.id}" ${checked ? 'checked' : ''} ${src.locked || !editable ? 'disabled' : ''}>
-        <div>
-          <div class="label">${src.label}${isSuggested ? ' — suggested' : ''}</div>
-          <div class="note">${src.note}</div>
-        </div>
-      </label>
-    `;
-  }).join('');
-  el.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', e => {
-    const id = e.target.dataset.id;
-    if (id === 'Alcohol Initiative') alcoholTouchedManually = true;
-    if (e.target.checked) selectedSources.add(id); else selectedSources.delete(id);
-  }));
-}
 
 // ---------- Deadline preview ----------
 
@@ -204,8 +161,6 @@ async function loadExisting() {
     document.getElementById('endTime').value = existing.endTime;
     document.getElementById('agenda').value = existing.agenda;
     items = existing.items.length ? existing.items.map(it => ({ desc: it.desc, amount: it.amount })) : [{ desc: '', amount: '' }];
-    selectedSources = new Set(existing.fundingSources);
-    alcoholTouchedManually = true; // don't auto-override a saved selection
 
     editable = existing.status === 'Not Yet Requested';
     if (!editable) {
@@ -222,7 +177,6 @@ async function loadExisting() {
     }
 
     renderItemRows();
-    renderSources();
     updateDeadlinePreview();
     setupPhotoSection();
   } catch (e) {
@@ -280,7 +234,7 @@ async function save() {
 
   const payload = {
     code: session.code, eventName, eventDate, startTime, endTime, agenda,
-    items: cleanItems, fundingSources: Array.from(selectedSources),
+    items: cleanItems,
   };
 
   const btn = document.getElementById('saveBtn');
@@ -310,7 +264,7 @@ document.getElementById('deleteBtn').onclick = async () => {
 
 document.getElementById('addItemBtn').onclick = addItem;
 document.getElementById('saveBtn').onclick = save;
-['eventDate', 'startTime', 'endTime'].forEach(id => document.getElementById(id).addEventListener('input', () => { updateDeadlinePreview(); renderSources(); }));
+['eventDate', 'startTime', 'endTime'].forEach(id => document.getElementById(id).addEventListener('input', updateDeadlinePreview));
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
 
@@ -320,7 +274,6 @@ if (requestId) {
   loadExisting();
 } else {
   renderItemRows();
-  renderSources();
 }
 </script>
 </body>
