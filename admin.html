@@ -49,11 +49,20 @@
     </select>
   </div>
 
+  <div class="eyebrow">Too late to request <span class="count" id="cnt-toolate"></span></div>
+  <div class="entry-list" id="list-toolate"></div>
+
   <div class="eyebrow">Needs to be requested <span class="count" id="cnt-needs"></span></div>
   <div class="entry-list" id="list-needs"></div>
 
-  <div class="eyebrow">Requested — upcoming <span class="count" id="cnt-upcoming"></span></div>
-  <div class="entry-list" id="list-upcoming"></div>
+  <div class="eyebrow">Requested <span class="count" id="cnt-requested"></span></div>
+  <div class="entry-list" id="list-requested"></div>
+
+  <div class="eyebrow">Approved <span class="count" id="cnt-approved"></span></div>
+  <div class="entry-list" id="list-approved"></div>
+
+  <div class="eyebrow">Denied <span class="count" id="cnt-denied"></span></div>
+  <div class="entry-list" id="list-denied"></div>
 
   <div class="eyebrow">Past events <span class="count" id="cnt-past"></span></div>
   <div class="entry-list" id="list-past"></div>
@@ -68,6 +77,7 @@ const admin = Session_.requireAdmin();
 let allRequests = [];
 let allMembers = [];
 const STATUS_OPTIONS = ['Not Yet Requested', 'Requested', 'Approved', 'Denied', 'Too Late to Request'];
+const LIST_IDS = ['list-toolate', 'list-needs', 'list-requested', 'list-approved', 'list-denied', 'list-past'];
 
 document.getElementById('toggleRoster').onclick = () => {
   const el = document.getElementById('rosterCard');
@@ -76,7 +86,15 @@ document.getElementById('toggleRoster').onclick = () => {
 
 function showError(msg) { const e = document.getElementById('errorBox'); e.textContent = msg; e.style.display = 'block'; }
 
+function showLoading() {
+  LIST_IDS.forEach(id => {
+    document.getElementById(id).innerHTML = '<div class="loading-note"><span class="spinner"></span>Loading…</div>';
+  });
+  document.getElementById('rosterBody').innerHTML = '<tr><td colspan="5" class="loading-note"><span class="spinner"></span>Loading…</td></tr>';
+}
+
 async function loadAll() {
+  showLoading();
   try {
     const [reqRes, memRes] = await Promise.all([
       callApi('getAllRequests', admin),
@@ -88,6 +106,7 @@ async function loadAll() {
     applyFiltersAndRender();
   } catch (e) {
     showError(e.message);
+    LIST_IDS.forEach(id => { document.getElementById(id).innerHTML = ''; });
   }
 }
 
@@ -143,7 +162,7 @@ function applyFiltersAndRender() {
     if (q && !(r.eventName.toLowerCase().includes(q) || r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q))) return false;
     return true;
   });
-  render(groupRequests(filtered));
+  render(groupRequestsAdmin(filtered));
 }
 
 function section(listId, countId, items, emptyMsg, deadlineNote) {
@@ -159,8 +178,11 @@ function section(listId, countId, items, emptyMsg, deadlineNote) {
 }
 
 function render(groups) {
+  section('list-toolate', 'cnt-toolate', groups.tooLate, 'Nothing flagged as too late.', true);
   section('list-needs', 'cnt-needs', groups.needsAction, 'Nothing pending.', true);
-  section('list-upcoming', 'cnt-upcoming', groups.upcoming, 'Nothing here.', false);
+  section('list-requested', 'cnt-requested', groups.requested, 'Nothing currently requested.', true);
+  section('list-approved', 'cnt-approved', groups.approved, 'Nothing approved yet.', true);
+  section('list-denied', 'cnt-denied', groups.denied, 'Nothing denied.', true);
   section('list-past', 'cnt-past', groups.past, 'No past events yet.', false);
 }
 
@@ -173,12 +195,25 @@ function toggleDetail(id) {
   el.innerHTML = detailHTML(r);
   el.style.display = 'block';
   document.getElementById('status-' + id).addEventListener('change', e => changeStatus(id, e.target.value));
+  el.querySelectorAll('.source-checkbox').forEach(cb => cb.addEventListener('change', () => saveFundingSources(id, el)));
 }
 
 function detailHTML(r) {
   const itemsHTML = r.items.map(it => `<div class="between small"><span>${escapeHtml(it.desc)}</span><span class="mono">${fmtMoney(it.amount)}</span></div>`).join('');
-  const sourcesHTML = r.fundingSources.map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('');
   const photoHTML = r.photoUrl ? `<p class="small"><a href="${r.photoUrl}" target="_blank" rel="noopener">View uploaded photo →</a></p>` : `<p class="small">No photo uploaded yet.</p>`;
+  const alcoholSuggested = suggestsAlcoholInitiative(r.eventDate, r.startTime, r.endTime);
+
+  const sourcesHTML = FUNDING_SOURCES.map(src => {
+    const checked = r.fundingSources.includes(src.id);
+    const suggestHint = src.id === 'Alcohol Initiative' && alcoholSuggested && !checked
+      ? ' <span style="color:var(--orange)">— suggested by date/time</span>' : '';
+    return `
+      <label class="source-item ${src.locked ? 'locked' : ''}" style="padding:7px 10px;">
+        <input type="checkbox" class="source-checkbox" data-id="${src.id}" ${checked ? 'checked' : ''} ${src.locked ? 'disabled' : ''}>
+        <div><div class="label" style="font-size:0.85rem;">${src.label}${suggestHint}</div></div>
+      </label>`;
+  }).join('');
+
   return `
     <div class="row2">
       <div>
@@ -186,7 +221,6 @@ function detailHTML(r) {
         <p class="small">${escapeHtml(r.agenda) || '—'}</p>
         <p class="small" style="margin-bottom:6px;"><strong>Itemized costs</strong></p>
         ${itemsHTML}
-        <p class="small" style="margin-top:10px;"><strong>Funding sources</strong><br>${sourcesHTML}</p>
       </div>
       <div>
         <div class="field">
@@ -194,6 +228,10 @@ function detailHTML(r) {
           <select id="status-${r.id}">
             ${STATUS_OPTIONS.map(s => `<option ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}
           </select>
+        </div>
+        <div class="field">
+          <label>Funding sources</label>
+          <div class="source-list">${sourcesHTML}</div>
         </div>
         ${photoHTML}
       </div>
@@ -210,7 +248,16 @@ async function changeStatus(id, status) {
   } catch (e) { showError(e.message); }
 }
 
-function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+async function saveFundingSources(id, panelEl) {
+  const fundingSources = Array.from(panelEl.querySelectorAll('.source-checkbox'))
+    .filter(cb => cb.checked)
+    .map(cb => cb.dataset.id);
+  try {
+    await callApi('updateFundingSources', Object.assign({ id, fundingSources }, admin));
+    const r = allRequests.find(x => x.id === id);
+    r.fundingSources = ['Projects Board', ...fundingSources.filter(s => s !== 'Projects Board')];
+  } catch (e) { showError(e.message); }
+}
 
 loadAll();
 </script>
