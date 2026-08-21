@@ -48,41 +48,44 @@ function suggestsAlcoholInitiative(eventDateStr, startTime, endTime) {
 }
 
 /**
- * Given an event date and total cost, find the soonest upcoming Thursday
- * Projects Board meeting the request can still target, and the Monday
- * 11:59pm deadline to submit by. Returns { tooLate, deadline, meetingDate, leadWeeks }.
+ * Given an event date and total cost, find the LAST Projects Board Thursday
+ * meeting that still leaves the required lead time before the event, and
+ * the Monday 11:59pm deadline to submit by for that meeting. This is the
+ * final cutoff — submitting any time before it is fine, but missing it
+ * means the standard lead-time requirement can no longer be met.
+ * Returns { tooLate, deadline, meetingDate, leadWeeks }.
  */
 function computeDeadlineInfo(eventDateStr, totalCost) {
   const leadWeeks = Number(totalCost) > 750 ? 3 : 2;
   const eventDate = new Date(eventDateStr + 'T00:00:00');
   const now = new Date();
 
-  // Find the next upcoming Thursday (or today, if today is Thursday).
-  let thursday = new Date();
-  thursday.setHours(0, 0, 0, 0);
-  const daysUntilThursday = (4 - thursday.getDay() + 7) % 7;
-  thursday.setDate(thursday.getDate() + daysUntilThursday);
+  // The latest a meeting could occur and still leave the required lead time.
+  const cutoff = new Date(eventDate);
+  cutoff.setDate(cutoff.getDate() - leadWeeks * 7);
+  cutoff.setHours(0, 0, 0, 0);
 
+  // Step back to the most recent Thursday on or before that cutoff.
+  let thursday = new Date(cutoff);
+  const daysSinceThursday = (thursday.getDay() - 4 + 7) % 7;
+  thursday.setDate(thursday.getDate() - daysSinceThursday);
+
+  // Walk further back, skipping any Thursday that falls in a break, until
+  // we land on an actual meeting date. Capped generously (30 weeks) —
+  // no real academic break runs anywhere near that long.
+  let meetingDate = null;
   for (let i = 0; i < 30; i++) {
-    if (!isDateInBreak(thursday)) {
-      const deadline = new Date(thursday);
-      deadline.setDate(deadline.getDate() - 3); // Monday
-      deadline.setHours(23, 59, 0, 0);
-
-      const gapDays = (eventDate - thursday) / (1000 * 60 * 60 * 24);
-      const leadOk = gapDays >= leadWeeks * 7;
-
-      if (leadOk && deadline >= now) {
-        return { tooLate: false, deadline, meetingDate: new Date(thursday), leadWeeks };
-      }
-      if (!leadOk) {
-        // Gap only shrinks as Thursdays move forward, so it will never recover.
-        return { tooLate: true, deadline: null, meetingDate: null, leadWeeks };
-      }
-    }
-    thursday.setDate(thursday.getDate() + 7);
+    if (!isDateInBreak(thursday)) { meetingDate = new Date(thursday); break; }
+    thursday.setDate(thursday.getDate() - 7);
   }
-  return { tooLate: true, deadline: null, meetingDate: null, leadWeeks };
+  if (!meetingDate) return { tooLate: true, deadline: null, meetingDate: null, leadWeeks };
+
+  const deadline = new Date(meetingDate);
+  deadline.setDate(deadline.getDate() - 3); // Monday before that Thursday
+  deadline.setHours(23, 59, 0, 0);
+
+  if (deadline < now) return { tooLate: true, deadline: null, meetingDate: null, leadWeeks };
+  return { tooLate: false, deadline, meetingDate, leadWeeks };
 }
 
 function fmtDate(d) {
