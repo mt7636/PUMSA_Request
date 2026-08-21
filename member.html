@@ -44,13 +44,23 @@
 const session = Session_.requireMember();
 document.getElementById('whoName').textContent = session.name + ' (' + session.code + ')';
 
+const LIST_IDS = ['list-needs', 'list-upcoming', 'list-past'];
+
+function showLoading() {
+  LIST_IDS.forEach(id => {
+    document.getElementById(id).innerHTML = '<div class="loading-note"><span class="spinner"></span>Loading…</div>';
+  });
+}
+
 async function load() {
+  showLoading();
   try {
     const res = await callApi('getMyRequests', { code: session.code });
     render(groupRequests(res.requests));
   } catch (e) {
     document.getElementById('errorBox').textContent = e.message;
     document.getElementById('errorBox').style.display = 'block';
+    LIST_IDS.forEach(id => { document.getElementById(id).innerHTML = ''; });
   }
 }
 
