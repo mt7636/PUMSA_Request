@@ -106,12 +106,21 @@ function groupRequestsAdmin(requests) {
   requests.forEach(r => {
     const eventDate = new Date(r.eventDate + 'T00:00:00');
     if (eventDate < today) { buckets.past.push(r); return; }
+
+    if (r.status === 'Not Yet Requested') {
+      // Auto-promote to "Too Late" the moment the computed cutoff has
+      // passed, rather than waiting for an admin to notice and flip the
+      // status by hand.
+      const missedDeadline = computeDeadlineInfo(r.eventDate, r.totalCost).tooLate;
+      (missedDeadline ? buckets.tooLate : buckets.needsAction).push(r);
+      return;
+    }
+
     switch (r.status) {
       case 'Too Late to Request': buckets.tooLate.push(r); break;
       case 'Requested': buckets.requested.push(r); break;
       case 'Approved': buckets.approved.push(r); break;
       case 'Denied': buckets.denied.push(r); break;
-      case 'Not Yet Requested':
       default: buckets.needsAction.push(r);
     }
   });
