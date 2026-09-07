@@ -88,6 +88,7 @@ function renderEntryHTML(r, opts) {
     </div>
     <div class="side">
       <span class="stamp ${statusStampClass(r.status)}">${r.status}</span>
+      ${opts.showRequester && !r.locationReserved ? '<span class="small" style="color:var(--red)">📍 not reserved</span>' : ''}
       ${r.photoUrl ? '<span class="small">📷 photo added</span>' : ''}
     </div>
   `;
