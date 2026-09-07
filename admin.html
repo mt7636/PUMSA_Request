@@ -217,6 +217,12 @@ function detailHTML(r) {
   return `
     <div class="row2">
       <div>
+        <p class="small" style="margin-bottom:6px;"><strong>Location</strong></p>
+        <p class="small">${escapeHtml(r.location) || '—'} ${r.locationReserved ? '<span class="stamp stamp-approved">reserved</span>' : '<span class="stamp stamp-toolate">not reserved</span>'}</p>
+        <p class="small" style="margin-bottom:6px;"><strong>Estimated attendance</strong></p>
+        <p class="small">${r.estAttendance || '—'}</p>
+        <p class="small" style="margin-bottom:6px;"><strong>Approximate schedule</strong></p>
+        <p class="small">${escapeHtml(r.schedule) || '—'}</p>
         <p class="small" style="margin-bottom:6px;"><strong>Agenda</strong></p>
         <p class="small">${escapeHtml(r.agenda) || '—'}</p>
         <p class="small" style="margin-bottom:6px;"><strong>Itemized costs</strong></p>
