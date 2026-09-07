@@ -51,9 +51,32 @@
 
     <div id="deadlinePreview" class="info-box" style="display:none;"></div>
 
+    <div class="row3">
+      <div class="field">
+        <label for="estAttendance">Estimated attendance</label>
+        <input type="number" id="estAttendance" min="1" step="1" placeholder="e.g. 80">
+      </div>
+      <div class="field" style="grid-column: span 2;">
+        <label for="location">Location</label>
+        <input type="text" id="location" placeholder="e.g. Frist Multipurpose Room">
+      </div>
+    </div>
+
     <div class="field">
-      <label for="agenda">Short agenda (INCLUDE LOCATION)</label>
-      <textarea id="agenda" placeholder="What's happening, briefly — e.g. 6:00 doors open, 6:30 dinner, 7:15 speaker, 8:00 close"></textarea>
+      <label class="checkbox-label" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+        <input type="checkbox" id="locationReserved" style="width:auto;">
+        <span>Location has been reserved</span>
+      </label>
+    </div>
+
+    <div class="field">
+      <label for="schedule">Approximate schedule</label>
+      <textarea id="schedule" placeholder="e.g. 6:00 doors open, 6:30 dinner, 7:15 speaker, 8:00 close"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="agenda">Agenda</label>
+      <textarea id="agenda" placeholder="What's the purpose and content of the event?"></textarea>
     </div>
 
     <div class="field">
@@ -159,6 +182,10 @@ async function loadExisting() {
     document.getElementById('eventDate').value = existing.eventDate;
     document.getElementById('startTime').value = existing.startTime;
     document.getElementById('endTime').value = existing.endTime;
+    document.getElementById('estAttendance').value = existing.estAttendance || '';
+    document.getElementById('location').value = existing.location || '';
+    document.getElementById('locationReserved').checked = !!existing.locationReserved;
+    document.getElementById('schedule').value = existing.schedule || '';
     document.getElementById('agenda').value = existing.agenda;
     items = existing.items.length ? existing.items.map(it => ({ desc: it.desc, amount: it.amount })) : [{ desc: '', amount: '' }];
 
@@ -170,6 +197,10 @@ async function loadExisting() {
       document.getElementById('eventDate').disabled = true;
       document.getElementById('startTime').disabled = true;
       document.getElementById('endTime').disabled = true;
+      document.getElementById('estAttendance').disabled = true;
+      document.getElementById('location').disabled = true;
+      document.getElementById('locationReserved').disabled = true;
+      document.getElementById('schedule').disabled = true;
       document.getElementById('agenda').disabled = true;
       document.getElementById('saveBtn').style.display = 'none';
     } else {
@@ -226,14 +257,21 @@ async function save() {
   const eventDate = document.getElementById('eventDate').value;
   const startTime = document.getElementById('startTime').value;
   const endTime = document.getElementById('endTime').value;
+  const estAttendance = document.getElementById('estAttendance').value;
+  const location = document.getElementById('location').value.trim();
+  const locationReserved = document.getElementById('locationReserved').checked;
+  const schedule = document.getElementById('schedule').value.trim();
   const agenda = document.getElementById('agenda').value.trim();
   const cleanItems = items.filter(it => it.desc.trim() !== '' || it.amount !== '').map(it => ({ desc: it.desc.trim(), amount: Number(it.amount) || 0 }));
 
   if (!eventName || !eventDate || !startTime || !endTime) return showError('Fill in the event name, date, and start/end time.');
+  if (!estAttendance || Number(estAttendance) <= 0) return showError('Enter an estimated attendance.');
+  if (!location) return showError('Enter a location.');
   if (!cleanItems.length) return showError('Add at least one itemized cost.');
 
   const payload = {
-    code: session.code, eventName, eventDate, startTime, endTime, agenda,
+    code: session.code, eventName, eventDate, startTime, endTime,
+    estAttendance: Number(estAttendance), location, locationReserved, schedule, agenda,
     items: cleanItems,
   };
 
