@@ -81,10 +81,13 @@
 
     <div class="field">
       <label>Itemized costs</label>
+      <div class="item-header" aria-hidden="true">
+        <span>Item</span><span>Qty</span><span>Cost / item</span><span>Total</span><span></span>
+      </div>
       <div id="itemRows"></div>
       <button class="btn btn-outline" id="addItemBtn" type="button" style="margin-top:6px;">+ Add item</button>
-      <div class="item-total"><span>Total</span><span class="amt" id="itemTotal">$0</span></div>
-      <div class="hint">Example: $500 for 50 sliders, $50 for tablecloths, $200 for a speaker honorarium → $750 total.</div>
+      <div class="item-total"><span>Total</span><span class="amt" id="itemTotal">$0.00</span></div>
+      <div class="hint">Enter the item name, quantity, and cost per item. The line total and request total are calculated automatically.</div>
     </div>
 
     <button class="btn btn-primary btn-full" id="saveBtn">Save request</button>
@@ -113,7 +116,7 @@ document.getElementById('whoName').textContent = session.name + ' (' + session.c
 const params = new URLSearchParams(window.location.search);
 const requestId = params.get('id');
 
-let items = [{ desc: '', amount: '' }];
+let items = [{ name: '', quantity: '', unitCost: '' }];
 let existing = null;
 let editable = true;
 
@@ -121,17 +124,24 @@ function showError(msg) { const e = document.getElementById('errorBox'); e.textC
 
 // ---------- Itemized cost rows ----------
 
+function itemLineTotal(it) {
+  return Math.round(((Number(it.quantity) || 0) * (Number(it.unitCost) || 0)) * 100) / 100;
+}
+
 function renderItemRows() {
   const el = document.getElementById('itemRows');
   el.innerHTML = items.map((it, i) => `
     <div class="item-row">
-      <input type="text" placeholder="Description" data-idx="${i}" class="item-desc" value="${escapeHtml(it.desc)}" ${editable ? '' : 'disabled'}>
-      <input type="number" placeholder="0.00" min="0" step="0.01" data-idx="${i}" class="item-amt" value="${it.amount}" ${editable ? '' : 'disabled'}>
+      <input type="text" placeholder="Item" data-idx="${i}" class="item-name" value="${escapeHtml(it.name)}" ${editable ? '' : 'disabled'}>
+      <input type="number" placeholder="Qty" min="1" step="1" data-idx="${i}" class="item-qty" value="${it.quantity}" ${editable ? '' : 'disabled'}>
+      <input type="number" placeholder="0.00" min="0" step="0.01" data-idx="${i}" class="item-unit-cost" value="${it.unitCost}" ${editable ? '' : 'disabled'}>
+      <span class="item-line-total mono">${fmtMoney(itemLineTotal(it))}</span>
       <button type="button" class="btn-ghost" data-idx="${i}" onclick="removeItem(${i})" ${editable ? '' : 'disabled'} style="cursor:pointer;">✕</button>
     </div>
   `).join('');
-  el.querySelectorAll('.item-desc').forEach(inp => inp.addEventListener('input', e => { items[e.target.dataset.idx].desc = e.target.value; }));
-  el.querySelectorAll('.item-amt').forEach(inp => inp.addEventListener('input', e => { items[e.target.dataset.idx].amount = e.target.value; updateTotal(); }));
+  el.querySelectorAll('.item-name').forEach(inp => inp.addEventListener('input', e => { items[e.target.dataset.idx].name = e.target.value; }));
+  el.querySelectorAll('.item-qty').forEach(inp => inp.addEventListener('input', e => { items[e.target.dataset.idx].quantity = e.target.value; updateTotal(); }));
+  el.querySelectorAll('.item-unit-cost').forEach(inp => inp.addEventListener('input', e => { items[e.target.dataset.idx].unitCost = e.target.value; updateTotal(); }));
   updateTotal();
 }
 
@@ -141,16 +151,17 @@ function removeItem(i) {
   renderItemRows();
 }
 
-function addItem() { items.push({ desc: '', amount: '' }); renderItemRows(); }
+function addItem() { items.push({ name: '', quantity: '', unitCost: '' }); renderItemRows(); }
 
-function currentTotal() { return items.reduce((s, it) => s + (Number(it.amount) || 0), 0); }
+function currentTotal() { return Math.round(items.reduce((s, it) => s + itemLineTotal(it), 0) * 100) / 100; }
 
 function updateTotal() {
-  document.getElementById('itemTotal').textContent = fmtMoney0(currentTotal());
+  document.querySelectorAll('.item-line-total').forEach((el, i) => { el.textContent = fmtMoney(itemLineTotal(items[i])); });
+  document.getElementById('itemTotal').textContent = fmtMoney(currentTotal());
   updateDeadlinePreview();
 }
 
-function fmtMoney0(n) { return '$' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }); }
+function fmtMoney(n) { return '$' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 // ---------- Deadline preview ----------
 
@@ -162,7 +173,7 @@ function updateDeadlinePreview() {
   box.style.display = 'block';
   if (info.tooLate) {
     box.className = 'error-box';
-    box.textContent = `This event may be too soon for Projects Board's standard lead time (${info.leadWeeks} weeks after the meeting for a ${fmtMoney0(currentTotal())} request). Contact Projects Board directly, or pick a later date.`;
+    box.textContent = `This event may be too soon for Projects Board's standard lead time (${info.leadWeeks} weeks after the meeting for a ${fmtMoney(currentTotal())} request). Contact Projects Board directly, or pick a later date.`;
   } else {
     box.className = 'info-box';
     box.textContent = `Submit by ${fmtDateTime(info.deadline)} to be considered at the ${fmtDate(info.meetingDate)} Projects Board meeting.`;
@@ -187,7 +198,11 @@ async function loadExisting() {
     document.getElementById('locationReserved').checked = !!existing.locationReserved;
     document.getElementById('schedule').value = existing.schedule || '';
     document.getElementById('agenda').value = existing.agenda;
-    items = existing.items.length ? existing.items.map(it => ({ desc: it.desc, amount: it.amount })) : [{ desc: '', amount: '' }];
+    items = existing.items.length ? existing.items.map(it => ({
+      name: it.name || it.desc || '',
+      quantity: it.quantity == null || it.quantity === '' ? 1 : it.quantity,
+      unitCost: it.unitCost == null || it.unitCost === '' ? (it.amount || 0) : it.unitCost
+    })) : [{ name: '', quantity: '', unitCost: '' }];
 
     editable = existing.status === 'Not Yet Requested';
     if (!editable) {
@@ -262,12 +277,21 @@ async function save() {
   const locationReserved = document.getElementById('locationReserved').checked;
   const schedule = document.getElementById('schedule').value.trim();
   const agenda = document.getElementById('agenda').value.trim();
-  const cleanItems = items.filter(it => it.desc.trim() !== '' || it.amount !== '').map(it => ({ desc: it.desc.trim(), amount: Number(it.amount) || 0 }));
+  const cleanItems = items.filter(it => it.name.trim() !== '' || it.quantity !== '' || it.unitCost !== '').map(it => ({
+    name: it.name.trim(),
+    quantity: Number(it.quantity),
+    unitCost: Number(it.unitCost)
+  }));
 
   if (!eventName || !eventDate || !startTime || !endTime) return showError('Fill in the event name, date, and start/end time.');
   if (!estAttendance || Number(estAttendance) <= 0) return showError('Enter an estimated attendance.');
   if (!location) return showError('Enter a location.');
   if (!cleanItems.length) return showError('Add at least one itemized cost.');
+  for (const it of cleanItems) {
+    if (!it.name) return showError('Every itemized cost needs an item name.');
+    if (!Number.isInteger(it.quantity) || it.quantity <= 0) return showError('Each item quantity must be a positive whole number.');
+    if (!Number.isFinite(it.unitCost) || it.unitCost < 0) return showError('Each cost per item must be a nonnegative number.');
+  }
 
   const payload = {
     code: session.code, eventName, eventDate, startTime, endTime,
