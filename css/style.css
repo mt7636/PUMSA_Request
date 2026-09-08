@@ -166,8 +166,46 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--orange); ou
 
 /* ---------- Itemized costs ---------- */
 
-.item-row { display: grid; grid-template-columns: 1fr 130px 34px; gap: 10px; margin-bottom: 8px; align-items: center; }
-@media (max-width: 620px) { .item-row { grid-template-columns: 1fr 90px 30px; } }
+.item-header {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 80px 120px 110px 34px;
+  gap: 10px;
+  margin-bottom: 6px;
+  padding: 0 10px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+.item-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 80px 120px 110px 34px;
+  gap: 10px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+.item-line-total { text-align: right; color: var(--paper); white-space: nowrap; }
+.item-row .btn-ghost { justify-self: center; }
+.itemized-admin-line { margin: 4px 0; }
+@media (max-width: 700px) {
+  .item-header, .item-row {
+    grid-template-columns: minmax(140px, 1fr) 70px 105px 95px 30px;
+    gap: 6px;
+  }
+}
+@media (max-width: 520px) {
+  .item-header { display: none; }
+  .item-row {
+    grid-template-columns: 1fr 70px 30px;
+    gap: 6px;
+  }
+  .item-row .item-name { grid-column: 1; }
+  .item-row .item-qty { grid-column: 2; }
+  .item-row .item-unit-cost { grid-column: 1; }
+  .item-row .item-line-total { grid-column: 2; text-align: right; }
+  .item-row .btn-ghost { grid-column: 3; grid-row: 1 / span 2; }
+}
 .item-total { display: flex; justify-content: space-between; align-items: center; padding: 12px 0 0; font-family: var(--mono); font-size: 1rem; border-top: 1px dashed var(--line); margin-top: 10px; }
 .item-total .amt { color: var(--orange); font-weight: 700; font-size: 1.2rem; }
 
