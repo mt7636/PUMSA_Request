@@ -180,9 +180,9 @@ function section(listId, countId, items, emptyMsg, deadlineNote) {
 function render(groups) {
   section('list-toolate', 'cnt-toolate', groups.tooLate, 'Nothing flagged as too late.', true);
   section('list-needs', 'cnt-needs', groups.needsAction, 'Nothing pending.', true);
-  section('list-requested', 'cnt-requested', groups.requested, 'Nothing currently requested.', true);
-  section('list-approved', 'cnt-approved', groups.approved, 'Nothing approved yet.', true);
-  section('list-denied', 'cnt-denied', groups.denied, 'Nothing denied.', true);
+  section('list-requested', 'cnt-requested', groups.requested, 'Nothing currently requested.', false);
+  section('list-approved', 'cnt-approved', groups.approved, 'Nothing approved yet.', false);
+  section('list-denied', 'cnt-denied', groups.denied, 'Nothing denied.', false);
   section('list-past', 'cnt-past', groups.past, 'No past events yet.', false);
 }
 
@@ -199,7 +199,13 @@ function toggleDetail(id) {
 }
 
 function detailHTML(r) {
-  const itemsHTML = r.items.map(it => `<div class="between small"><span>${escapeHtml(it.desc)}</span><span class="mono">${fmtMoney(it.amount)}</span></div>`).join('');
+  const itemsHTML = r.items.map(it => {
+    const name = it.name || it.desc || '';
+    const quantity = it.quantity == null || it.quantity === '' ? 1 : Number(it.quantity);
+    const unitCost = it.unitCost == null || it.unitCost === '' ? Number(it.amount || 0) : Number(it.unitCost);
+    const total = it.total == null || it.total === '' ? quantity * unitCost : Number(it.total);
+    return `<div class="between small itemized-admin-line"><span>${escapeHtml(name)} <span class="mono">(${fmtMoney(unitCost)} / 'ct')</span> x ${quantity}</span><span class="mono">= ${fmtMoney(total)}</span></div>`;
+  }).join('');
   const photoHTML = r.photoUrl ? `<p class="small"><a href="${r.photoUrl}" target="_blank" rel="noopener">View uploaded photo →</a></p>` : `<p class="small">No photo uploaded yet.</p>`;
   const alcoholSuggested = suggestsAlcoholInitiative(r.eventDate, r.startTime, r.endTime);
 
