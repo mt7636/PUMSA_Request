@@ -204,7 +204,7 @@ function detailHTML(r) {
     const quantity = it.quantity == null || it.quantity === '' ? 1 : Number(it.quantity);
     const unitCost = it.unitCost == null || it.unitCost === '' ? Number(it.amount || 0) : Number(it.unitCost);
     const total = it.total == null || it.total === '' ? quantity * unitCost : Number(it.total);
-    return `<div class="between small itemized-admin-line"><span>${escapeHtml(name)} <span class="mono">(${fmtMoney(unitCost)} / 'ct')</span> x ${quantity}</span><span class="mono">= ${fmtMoney(total)}</span></div>`;
+    return `<div class="between small itemized-admin-line"><span>${escapeHtml(name)} <span class="mono">(${fmtMoney(unitCost)}/count)</span> x ${quantity}</span><span class="mono">= ${fmtMoney(total)}</span></div>`;
   }).join('');
   const photoHTML = r.photoUrl ? `<p class="small"><a href="${r.photoUrl}" target="_blank" rel="noopener">View uploaded photo →</a></p>` : `<p class="small">No photo uploaded yet.</p>`;
   const alcoholSuggested = suggestsAlcoholInitiative(r.eventDate, r.startTime, r.endTime);
