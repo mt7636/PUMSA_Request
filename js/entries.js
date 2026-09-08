@@ -71,7 +71,7 @@ function renderEntryHTML(r, opts) {
   opts = opts || {};
   const { day, mon } = fmtEventDate(r.eventDate);
   let deadlineHTML = '';
-  if (opts.deadlineNote) {
+  if (opts.deadlineNote && r.status === 'Not Yet Requested') {
     const info = computeDeadlineInfo(r.eventDate, r.totalCost);
     deadlineHTML = info.tooLate
       ? '<div class="deadline-flag" style="color:var(--red)">too late for standard timeline</div>'
@@ -109,9 +109,6 @@ function groupRequestsAdmin(requests) {
     if (eventDate < today) { buckets.past.push(r); return; }
 
     if (r.status === 'Not Yet Requested') {
-      // Auto-promote to "Too Late" the moment the computed cutoff has
-      // passed, rather than waiting for an admin to notice and flip the
-      // status by hand.
       const missedDeadline = computeDeadlineInfo(r.eventDate, r.totalCost).tooLate;
       (missedDeadline ? buckets.tooLate : buckets.needsAction).push(r);
       return;
