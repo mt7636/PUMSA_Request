@@ -114,7 +114,7 @@ async function loadAll() {
 // ---------- Roster ----------
 
 function renderRoster() {
-  document.getElementById('rosterBody').innerHTML = allMembers.map(m => 
+  document.getElementById('rosterBody').innerHTML = allMembers.map(m => `
     <tr>
       <td>${escapeHtml(m.Name)}</td>
       <td class="mono">${escapeHtml(m.Code)}</td>
@@ -122,7 +122,7 @@ function renderRoster() {
       <td>${m.Active === false || m.Active === 'FALSE' ? '<span class="stamp stamp-toolate">inactive</span>' : '<span class="stamp stamp-approved">active</span>'}</td>
       <td><button class="link-btn" data-code="${escapeHtml(m.Code)}" data-active="${!(m.Active === false || m.Active === 'FALSE')}" onclick="toggleActive(this)">${m.Active === false || m.Active === 'FALSE' ? 'reactivate' : 'deactivate'}</button></td>
     </tr>
-  ).join('');
+  `).join('');
 }
 
 async function toggleActive(btn) {
@@ -170,12 +170,12 @@ function section(listId, countId, items, emptyMsg, deadlineNote) {
   document.getElementById(countId).textContent = items.length ? '(' + items.length + ')' : '';
   const el = document.getElementById(listId);
   if (!items.length) { el.innerHTML = '<div class="empty-note">' + emptyMsg + '</div>'; return; }
-  el.innerHTML = items.map(r => 
+  el.innerHTML = items.map(r => `
     <div>
       <div class="entry" style="cursor:pointer;" onclick="toggleDetail('${r.id}')">${renderEntryHTML(r, { deadlineNote, showRequester: true })}</div>
       <div id="detail-${r.id}" style="display:none; padding:16px 4px 24px 4px; border-bottom:1px solid var(--line);"></div>
     </div>
-  ).join('');
+  `).join('');
 }
 
 function render(groups) {
@@ -255,23 +255,23 @@ function detailHTML(r) {
     const quantity = it.quantity == null || it.quantity === '' ? 1 : Number(it.quantity);
     const unitCost = it.unitCost == null || it.unitCost === '' ? Number(it.amount || 0) : Number(it.unitCost);
     const total = it.total == null || it.total === '' ? quantity * unitCost : Number(it.total);
-    return <div class="between small itemized-admin-line"><span>${escapeHtml(name)} <span class="mono">(${fmtMoney(unitCost)}/count)</span> x ${quantity}</span><span class="mono">= ${fmtMoney(total)}</span></div>;
+    return `<div class="between small itemized-admin-line"><span>${escapeHtml(name)} <span class="mono">(${fmtMoney(unitCost)}/count)</span> x ${quantity}</span><span class="mono">= ${fmtMoney(total)}</span></div>`;
   }).join('');
-  const photoHTML = r.photoUrl ? <p class="small"><a href="${r.photoUrl}" target="_blank" rel="noopener">View uploaded photo →</a></p> : <p class="small">No photo uploaded yet.</p>;
+  const photoHTML = r.photoUrl ? `<p class="small"><a href="${r.photoUrl}" target="_blank" rel="noopener">View uploaded photo →</a></p>` : `<p class="small">No photo uploaded yet.</p>`;
   const alcoholSuggested = suggestsAlcoholInitiative(r.eventDate, r.startTime, r.endTime);
 
   const sourcesHTML = FUNDING_SOURCES.map(src => {
     const checked = r.fundingSources.includes(src.id);
     const suggestHint = src.id === 'Alcohol Initiative' && alcoholSuggested && !checked
       ? ' <span style="color:var(--orange)">— suggested by date/time</span>' : '';
-    return 
+    return `
       <label class="source-item ${src.locked ? 'locked' : ''}" style="padding:7px 10px;">
         <input type="checkbox" class="source-checkbox" data-id="${src.id}" ${checked ? 'checked' : ''} ${src.locked ? 'disabled' : ''}>
         <div><div class="label" style="font-size:0.85rem;">${src.label}${suggestHint}</div></div>
-      </label>;
+      </label>`;
   }).join('');
 
-  return 
+  return `
     <div class="row2">
       <div>
         <p class="small" style="margin-bottom:6px;"><strong>Location</strong></p>
@@ -289,17 +289,18 @@ function detailHTML(r) {
         <div class="field">
           <label>Status</label>
           <select id="status-${r.id}">
-            ${STATUS_OPTIONS.map(s => <option ${s === r.status ? 'selected' : ''}>${s}</option>).join('')}
+            ${STATUS_OPTIONS.map(s => `<option ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}
           </select>
         </div>
-        ${r.status === 'Denied' && r.denialReason ? 
+        ${r.status === 'Denied' && r.denialReason ? `
           <div class="field">
             <label>Reason for denial</label>
             <div class="small" style="padding:10px; background:var(--bg); border-radius:8px;">
               ${escapeHtml(r.denialReason)}
             </div>
           </div>
-         : ''}  
+        ` : ''}
+                
           <div class="field">
           <label>Funding sources</label>
           <div class="source-list">${sourcesHTML}</div>
@@ -307,7 +308,7 @@ function detailHTML(r) {
         ${photoHTML}
       </div>
     </div>
-  ;
+  `;
 }
 
 async function changeStatus(id, status, denialReason = '') {
