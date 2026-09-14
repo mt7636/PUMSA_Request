@@ -86,14 +86,16 @@
       </div>
       <div id="itemRows"></div>
       <button class="btn btn-outline" id="addItemBtn" type="button" style="margin-top:6px;">+ Add item</button>
+      <div class="hint">Enter the item name, quantity, and cost per item. The line total and request total are calculated automatically.</div>
+
       <div class="item-total"><span>Total</span><span class="amt" id="itemTotal">$0.00</span></div>
+
       <!-- ADD THIS NEW ROW BELOW TOTAL -->
       <div class="item-total" style="margin-top: 6px; font-size: 0.95rem; border-top: none; color: #94a3b8;">
         <span>Cost per individual</span>
-        <span class="amt mono" id="costPerPerson" style="color: #38bdf8;">$0.00 / person</span>
+      <span class="amt mono" id="costPerPerson" style="color: #94a3b8;">$0.00 / person</span>
       </div>
       
-      <div class="hint">Enter the item name, quantity, and cost per item. The line total and request total are calculated automatically.</div>
     </div>
 
     <button class="btn btn-primary btn-full" id="saveBtn">Save request</button>
