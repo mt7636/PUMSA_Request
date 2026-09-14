@@ -87,6 +87,12 @@
       <div id="itemRows"></div>
       <button class="btn btn-outline" id="addItemBtn" type="button" style="margin-top:6px;">+ Add item</button>
       <div class="item-total"><span>Total</span><span class="amt" id="itemTotal">$0.00</span></div>
+      <!-- ADD THIS NEW ROW BELOW TOTAL -->
+      <div class="item-total" style="margin-top: 6px; font-size: 0.95rem; border-top: none; color: #94a3b8;">
+        <span>Cost per individual</span>
+        <span class="amt mono" id="costPerPerson" style="color: #38bdf8;">$0.00 / person</span>
+      </div>
+      
       <div class="hint">Enter the item name, quantity, and cost per item. The line total and request total are calculated automatically.</div>
     </div>
 
@@ -157,7 +163,18 @@ function currentTotal() { return Math.round(items.reduce((s, it) => s + itemLine
 
 function updateTotal() {
   document.querySelectorAll('.item-line-total').forEach((el, i) => { el.textContent = fmtMoney(itemLineTotal(items[i])); });
-  document.getElementById('itemTotal').textContent = fmtMoney(currentTotal());
+
+  const total = currentTotal();
+  document.getElementById('itemTotal').textContent = fmtMoney(total);
+  const attendanceVal = Number(document.getElementById('estAttendance').value) || 0;
+  const costPerPersonEl = document.getElementById('costPerPerson');
+  if (attendanceVal > 0) {
+    const perPerson = Math.round((total / attendanceVal) * 100) / 100;
+    costPerPersonEl.textContent = fmtMoney(perPerson) + ' / person';
+  } else {
+    costPerPersonEl.textContent = '$0.00 / person';
+  }
+  
   updateDeadlinePreview();
 }
 
@@ -223,6 +240,7 @@ async function loadExisting() {
     }
 
     renderItemRows();
+    updateTotal();
     updateDeadlinePreview();
     setupPhotoSection();
   } catch (e) {
@@ -326,7 +344,7 @@ document.getElementById('deleteBtn').onclick = async () => {
 
 document.getElementById('addItemBtn').onclick = addItem;
 document.getElementById('saveBtn').onclick = save;
-['eventDate', 'startTime', 'endTime'].forEach(id => document.getElementById(id).addEventListener('input', updateDeadlinePreview));
+['eventDate', 'startTime', 'endTime', 'estAttendance'].forEach(id => document.getElementById(id).addEventListener('input', updateTotal));
 
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
 
