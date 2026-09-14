@@ -76,6 +76,7 @@
 const admin = Session_.requireAdmin();
 let allRequests = [];
 let allMembers = [];
+let pendingDenial = null;
 const STATUS_OPTIONS = ['Not Yet Requested', 'Requested', 'Approved', 'Denied', 'Too Late to Request'];
 const LIST_IDS = ['list-toolate', 'list-needs', 'list-requested', 'list-approved', 'list-denied', 'list-past'];
 
@@ -194,8 +195,58 @@ function toggleDetail(id) {
   const r = allRequests.find(x => x.id === id);
   el.innerHTML = detailHTML(r);
   el.style.display = 'block';
-  document.getElementById('status-' + id).addEventListener('change', e => changeStatus(id, e.target.value));
-  el.querySelectorAll('.source-checkbox').forEach(cb => cb.addEventListener('change', () => saveFundingSources(id, el)));
+  document.getElementById('status-' + id).addEventListener('change', e => {
+    const newStatus = e.target.value;
+    const request = allRequests.find(r => r.id === id);
+  
+    if (!request) return;
+  
+    if (newStatus === 'Denied') {
+      openDenialModal(id, request.status);
+      return;
+    }
+  document.getElementById('denial-cancel').addEventListener('click', () => {
+  if (!pendingDenial) return;
+
+  const { id, previousStatus } = pendingDenial;
+
+  const select = document.getElementById('status-' + id);
+
+  if (select) {
+    select.value = previousStatus;
+  }
+
+  closeDenialModal();
+});
+
+    document.getElementById('denial-confirm').addEventListener('click', async () => {
+  if (!pendingDenial) return;
+
+  const reasonInput = document.getElementById('denial-reason');
+  const error = document.getElementById('denial-error');
+
+  const reason = reasonInput.value.trim();
+
+  if (!reason) {
+    error.textContent = 'Please enter a reason for the denial.';
+    error.style.display = 'block';
+    reasonInput.focus();
+    return;
+  }
+
+  const { id } = pendingDenial;
+
+  try {
+    await changeStatus(id, 'Denied', reason);
+    closeDenialModal();
+  } catch (e) {
+    error.textContent = e.message || 'Unable to deny this request.';
+    error.style.display = 'block';
+  }
+});
+  
+    changeStatus(id, newStatus);
+});  el.querySelectorAll('.source-checkbox').forEach(cb => cb.addEventListener('change', () => saveFundingSources(id, el)));
 }
 
 function detailHTML(r) {
@@ -251,15 +302,41 @@ function detailHTML(r) {
   `;
 }
 
-async function changeStatus(id, status) {
+async function changeStatus(id, status, denialReason = '') {
   try {
-    await callApi('updateStatus', Object.assign({ id, status }, admin));
-    const r = allRequests.find(x => x.id === id);
-    r.status = status;
-    applyFiltersAndRender();
-  } catch (e) { showError(e.message); }
-}
+    const payload = {
+      id: id,
+      status: status
+    };
 
+    if (status === 'Denied') {
+      payload.denialReason = denialReason;
+    }
+
+    await callApi(
+      'updateStatus',
+      Object.assign(payload, admin)
+    );
+
+    const r = allRequests.find(x => x.id === id);
+
+    if (r) {
+      r.status = status;
+
+      if (status === 'Denied') {
+        r.denialReason = denialReason;
+      }
+    }
+
+    applyFiltersAndRender();
+  } catch (e) {
+    if (status === 'Denied') {
+      throw e;
+    }
+
+    showError(e.message);
+  }
+}
 async function saveFundingSources(id, panelEl) {
   const fundingSources = Array.from(panelEl.querySelectorAll('.source-checkbox'))
     .filter(cb => cb.checked)
@@ -271,7 +348,62 @@ async function saveFundingSources(id, panelEl) {
   } catch (e) { showError(e.message); }
 }
 
+function openDenialModal(id, previousStatus) {
+  pendingDenial = {
+    id: id,
+    previousStatus: previousStatus
+  };
+
+  const reasonInput = document.getElementById('denial-reason');
+  const error = document.getElementById('denial-error');
+
+  reasonInput.value = '';
+  error.textContent = '';
+  error.style.display = 'none';
+
+  document.getElementById('denial-modal').style.display = 'flex';
+
+  setTimeout(() => reasonInput.focus(), 0);
+}
+
+function closeDenialModal() {
+  document.getElementById('denial-modal').style.display = 'none';
+  pendingDenial = null;
+}
+  
 loadAll();
 </script>
+<div id="denial-modal" class="modal-overlay" style="display: none;">
+  <div class="modal-card">
+    <h2>Deny Funding Request</h2>
+
+    <p>
+      Please provide a reason for denying this funding request.
+      This reason will be saved and sent to the member by email.
+    </p>
+
+    <label for="denial-reason">Reason for denial</label>
+
+    <textarea
+      id="denial-reason"
+      rows="5"
+      placeholder="Enter the reason for denying this request..."
+    ></textarea>
+
+    <div id="denial-error" class="error-text" style="display: none;"></div>
+
+    <div class="modal-actions">
+      <button type="button" id="denial-cancel" class="secondary-button">
+        Cancel
+      </button>
+
+      <button type="button" id="denial-confirm" class="danger-button">
+        Deny Request
+      </button>
+    </div>
+  </div>
+</div>
+  
+  
 </body>
 </html>
