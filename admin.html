@@ -1,418 +1,1748 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin — PUMSA Funding</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — PUMSA Funding</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
 
-<div class="topbar">
-  <a href="admin.html" class="word">PUMSA <span>Funding</span> <span class="mono small" style="color:var(--paper-dim)">/ admin</span></a>
-  <div class="who">
-    <button class="btn-ghost" style="cursor:pointer; font-family:var(--sans); font-size:0.8rem;" id="toggleRoster">Board roster</button>
-    <button class="btn-ghost" style="cursor:pointer; font-family:var(--sans); font-size:0.8rem;" onclick="Session_.logout()">Log out</button>
-  </div>
-</div>
+  <div class="topbar">
+    <a href="admin.html" class="word">
+      PUMSA <span>Funding</span>
+      <span class="mono small" style="color:var(--paper-dim)">/ admin</span>
+    </a>
 
-<div class="wrap-wide">
-  <h1 style="margin-top:8px;">All requests</h1>
-  <div id="errorBox" class="error-box" style="display:none;"></div>
+    <div class="who">
+      <button
+        class="btn-ghost"
+        style="cursor:pointer; font-family:var(--sans); font-size:0.8rem;"
+        id="toggleRoster"
+        type="button"
+      >
+        Board roster
+      </button>
 
-  <div id="rosterCard" class="card" style="display:none; margin-bottom:24px;">
-    <h3>Board members</h3>
-    <div class="row3" style="align-items:end;">
-      <div class="field" style="margin-bottom:0;"><label>Name</label><input type="text" id="newName"></div>
-      <div class="field" style="margin-bottom:0;"><label>Code</label><input type="text" id="newCode" placeholder="e.g. sp1282"></div>
-      <div class="field" style="margin-bottom:0;"><label>Email (for reminders)</label><input type="email" id="newEmail"></div>
+      <button
+        class="btn-ghost"
+        style="cursor:pointer; font-family:var(--sans); font-size:0.8rem;"
+        id="logoutBtn"
+        type="button"
+      >
+        Log out
+      </button>
     </div>
-    <button class="btn btn-outline" id="addMemberBtn" style="margin-top:12px;">+ Add board member</button>
-    <div id="rosterError" class="error-box" style="display:none; margin-top:14px;"></div>
-    <table class="admin-table" style="margin-top:18px;">
-      <thead><tr><th>Name</th><th>Code</th><th>Email</th><th>Status</th><th></th></tr></thead>
-      <tbody id="rosterBody"></tbody>
-    </table>
   </div>
 
-  <div class="filters">
-    <input type="text" id="searchInput" placeholder="Search event or requester...">
-    <select id="statusFilter">
-      <option value="">All statuses</option>
-      <option>Not Yet Requested</option>
-      <option>Requested</option>
-      <option>Approved</option>
-      <option>Denied</option>
-      <option>Too Late to Request</option>
-    </select>
-  </div>
 
-  <div class="eyebrow">Too late to request <span class="count" id="cnt-toolate"></span></div>
-  <div class="entry-list" id="list-toolate"></div>
+  <div class="wrap-wide">
 
-  <div class="eyebrow">Needs to be requested <span class="count" id="cnt-needs"></span></div>
-  <div class="entry-list" id="list-needs"></div>
+    <h1 style="margin-top:8px;">All requests</h1>
 
-  <div class="eyebrow">Requested <span class="count" id="cnt-requested"></span></div>
-  <div class="entry-list" id="list-requested"></div>
+    <div id="errorBox" class="error-box" style="display:none;"></div>
 
-  <div class="eyebrow">Approved <span class="count" id="cnt-approved"></span></div>
-  <div class="entry-list" id="list-approved"></div>
 
-  <div class="eyebrow">Denied <span class="count" id="cnt-denied"></span></div>
-  <div class="entry-list" id="list-denied"></div>
+    <!-- ==================== BOARD ROSTER ==================== -->
 
-  <div class="eyebrow">Past events <span class="count" id="cnt-past"></span></div>
-  <div class="entry-list" id="list-past"></div>
-</div>
+    <div
+      id="rosterCard"
+      class="card"
+      style="display:none; margin-bottom:24px;"
+    >
 
-<script src="js/config.js"></script>
-<script src="js/api.js"></script>
-<script src="js/funding-rules.js"></script>
-<script src="js/entries.js"></script>
-<script>
-const admin = Session_.requireAdmin();
-let allRequests = [];
-let allMembers = [];
-let pendingDenial = null;
-const STATUS_OPTIONS = ['Not Yet Requested', 'Requested', 'Approved', 'Denied', 'Too Late to Request'];
-const LIST_IDS = ['list-toolate', 'list-needs', 'list-requested', 'list-approved', 'list-denied', 'list-past'];
+      <h3>Board members</h3>
 
-document.getElementById('toggleRoster').onclick = () => {
-  const el = document.getElementById('rosterCard');
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
-};
+      <div class="row3" style="align-items:end;">
 
-function showError(msg) { const e = document.getElementById('errorBox'); e.textContent = msg; e.style.display = 'block'; }
-
-function showLoading() {
-  LIST_IDS.forEach(id => {
-    document.getElementById(id).innerHTML = '<div class="loading-note"><span class="spinner"></span>Loading…</div>';
-  });
-  document.getElementById('rosterBody').innerHTML = '<tr><td colspan="5" class="loading-note"><span class="spinner"></span>Loading…</td></tr>';
-}
-
-async function loadAll() {
-  showLoading();
-  try {
-    const [reqRes, memRes] = await Promise.all([
-      callApi('getAllRequests', admin),
-      callApi('getBoardMembers', admin),
-    ]);
-    allRequests = reqRes.requests;
-    allMembers = memRes.members;
-    renderRoster();
-    applyFiltersAndRender();
-  } catch (e) {
-    showError(e.message);
-    LIST_IDS.forEach(id => { document.getElementById(id).innerHTML = ''; });
-  }
-}
-
-// ---------- Roster ----------
-
-function renderRoster() {
-  document.getElementById('rosterBody').innerHTML = allMembers.map(m => `
-    <tr>
-      <td>${escapeHtml(m.Name)}</td>
-      <td class="mono">${escapeHtml(m.Code)}</td>
-      <td>${escapeHtml(m.Email || '—')}</td>
-      <td>${m.Active === false || m.Active === 'FALSE' ? '<span class="stamp stamp-toolate">inactive</span>' : '<span class="stamp stamp-approved">active</span>'}</td>
-      <td><button class="link-btn" data-code="${escapeHtml(m.Code)}" data-active="${!(m.Active === false || m.Active === 'FALSE')}" onclick="toggleActive(this)">${m.Active === false || m.Active === 'FALSE' ? 'reactivate' : 'deactivate'}</button></td>
-    </tr>
-  `).join('');
-}
-
-async function toggleActive(btn) {
-  const code = btn.dataset.code;
-  const nowActive = btn.dataset.active === 'true';
-  try {
-    await callApi('setMemberActive', Object.assign({ code, active: !nowActive }, admin));
-    await loadAll();
-  } catch (e) { showError(e.message); }
-}
-
-document.getElementById('addMemberBtn').onclick = async () => {
-  const name = document.getElementById('newName').value.trim();
-  const code = document.getElementById('newCode').value.trim();
-  const email = document.getElementById('newEmail').value.trim();
-  const errBox = document.getElementById('rosterError');
-  errBox.style.display = 'none';
-  if (!name || !code) { errBox.textContent = 'Name and code are required.'; errBox.style.display = 'block'; return; }
-  try {
-    await callApi('addBoardMember', Object.assign({ name, code, email }, admin));
-    document.getElementById('newName').value = '';
-    document.getElementById('newCode').value = '';
-    document.getElementById('newEmail').value = '';
-    await loadAll();
-  } catch (e) { errBox.textContent = e.message; errBox.style.display = 'block'; }
-};
-
-// ---------- Requests list ----------
-
-document.getElementById('searchInput').addEventListener('input', applyFiltersAndRender);
-document.getElementById('statusFilter').addEventListener('change', applyFiltersAndRender);
-
-function applyFiltersAndRender() {
-  const q = document.getElementById('searchInput').value.trim().toLowerCase();
-  const statusF = document.getElementById('statusFilter').value;
-  const filtered = allRequests.filter(r => {
-    if (statusF && r.status !== statusF) return false;
-    if (q && !(r.eventName.toLowerCase().includes(q) || r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q))) return false;
-    return true;
-  });
-  render(groupRequestsAdmin(filtered));
-}
-
-function section(listId, countId, items, emptyMsg, deadlineNote) {
-  document.getElementById(countId).textContent = items.length ? '(' + items.length + ')' : '';
-  const el = document.getElementById(listId);
-  if (!items.length) { el.innerHTML = '<div class="empty-note">' + emptyMsg + '</div>'; return; }
-  el.innerHTML = items.map(r => `
-    <div>
-      <div class="entry" style="cursor:pointer;" onclick="toggleDetail('${r.id}')">${renderEntryHTML(r, { deadlineNote, showRequester: true })}</div>
-      <div id="detail-${r.id}" style="display:none; padding:16px 4px 24px 4px; border-bottom:1px solid var(--line);"></div>
-    </div>
-  `).join('');
-}
-
-function render(groups) {
-  section('list-toolate', 'cnt-toolate', groups.tooLate, 'Nothing flagged as too late.', true);
-  section('list-needs', 'cnt-needs', groups.needsAction, 'Nothing pending.', true);
-  section('list-requested', 'cnt-requested', groups.requested, 'Nothing currently requested.', false);
-  section('list-approved', 'cnt-approved', groups.approved, 'Nothing approved yet.', false);
-  section('list-denied', 'cnt-denied', groups.denied, 'Nothing denied.', false);
-  section('list-past', 'cnt-past', groups.past, 'No past events yet.', false);
-}
-
-function toggleDetail(id) {
-  const el = document.getElementById('detail-' + id);
-  const open = el.style.display === 'block';
-  document.querySelectorAll('[id^="detail-"]').forEach(d => d.style.display = 'none');
-  if (open) return;
-  const r = allRequests.find(x => x.id === id);
-  el.innerHTML = detailHTML(r);
-  el.style.display = 'block';
-  document.getElementById('status-' + id).addEventListener('change', e => {
-    const newStatus = e.target.value;
-    const request = allRequests.find(r => r.id === id);
-  
-    if (!request) return;
-  
-    if (newStatus === 'Denied') {
-      openDenialModal(id, request.status);
-      return;
-    }
-  document.getElementById('denial-cancel').addEventListener('click', () => {
-  if (!pendingDenial) return;
-
-  const { id, previousStatus } = pendingDenial;
-
-  const select = document.getElementById('status-' + id);
-
-  if (select) {
-    select.value = previousStatus;
-  }
-
-  closeDenialModal();
-});
-
-    document.getElementById('denial-confirm').addEventListener('click', async () => {
-  if (!pendingDenial) return;
-
-  const reasonInput = document.getElementById('denial-reason');
-  const error = document.getElementById('denial-error');
-
-  const reason = reasonInput.value.trim();
-
-  if (!reason) {
-    error.textContent = 'Please enter a reason for the denial.';
-    error.style.display = 'block';
-    reasonInput.focus();
-    return;
-  }
-
-  const { id } = pendingDenial;
-
-  try {
-    await changeStatus(id, 'Denied', reason);
-    closeDenialModal();
-  } catch (e) {
-    error.textContent = e.message || 'Unable to deny this request.';
-    error.style.display = 'block';
-  }
-});
-  
-    changeStatus(id, newStatus);
-});  el.querySelectorAll('.source-checkbox').forEach(cb => cb.addEventListener('change', () => saveFundingSources(id, el)));
-}
-
-function detailHTML(r) {
-  const itemsHTML = r.items.map(it => {
-    const name = it.name || it.desc || '';
-    const quantity = it.quantity == null || it.quantity === '' ? 1 : Number(it.quantity);
-    const unitCost = it.unitCost == null || it.unitCost === '' ? Number(it.amount || 0) : Number(it.unitCost);
-    const total = it.total == null || it.total === '' ? quantity * unitCost : Number(it.total);
-    return `<div class="between small itemized-admin-line"><span>${escapeHtml(name)} <span class="mono">(${fmtMoney(unitCost)}/count)</span> x ${quantity}</span><span class="mono">= ${fmtMoney(total)}</span></div>`;
-  }).join('');
-  const photoHTML = r.photoUrl ? `<p class="small"><a href="${r.photoUrl}" target="_blank" rel="noopener">View uploaded photo →</a></p>` : `<p class="small">No photo uploaded yet.</p>`;
-  const alcoholSuggested = suggestsAlcoholInitiative(r.eventDate, r.startTime, r.endTime);
-
-  const sourcesHTML = FUNDING_SOURCES.map(src => {
-    const checked = r.fundingSources.includes(src.id);
-    const suggestHint = src.id === 'Alcohol Initiative' && alcoholSuggested && !checked
-      ? ' <span style="color:var(--orange)">— suggested by date/time</span>' : '';
-    return `
-      <label class="source-item ${src.locked ? 'locked' : ''}" style="padding:7px 10px;">
-        <input type="checkbox" class="source-checkbox" data-id="${src.id}" ${checked ? 'checked' : ''} ${src.locked ? 'disabled' : ''}>
-        <div><div class="label" style="font-size:0.85rem;">${src.label}${suggestHint}</div></div>
-      </label>`;
-  }).join('');
-
-  return `
-    <div class="row2">
-      <div>
-        <p class="small" style="margin-bottom:6px;"><strong>Location</strong></p>
-        <p class="small">${escapeHtml(r.location) || '—'} ${r.locationReserved ? '<span class="stamp stamp-approved">reserved</span>' : '<span class="stamp stamp-toolate">not reserved</span>'}</p>
-        <p class="small" style="margin-bottom:6px;"><strong>Estimated attendance</strong></p>
-        <p class="small">${r.estAttendance || '—'}</p>
-        <p class="small" style="margin-bottom:6px;"><strong>Approximate schedule</strong></p>
-        <p class="small">${escapeHtml(r.schedule) || '—'}</p>
-        <p class="small" style="margin-bottom:6px;"><strong>Agenda</strong></p>
-        <p class="small">${escapeHtml(r.agenda) || '—'}</p>
-        <p class="small" style="margin-bottom:6px;"><strong>Itemized costs</strong></p>
-        ${itemsHTML}
-      </div>
-      <div>
-        <div class="field">
-          <label>Status</label>
-          <select id="status-${r.id}">
-            ${STATUS_OPTIONS.map(s => `<option ${s === r.status ? 'selected' : ''}>${s}</option>`).join('')}
-          </select>
+        <div class="field" style="margin-bottom:0;">
+          <label>Name</label>
+          <input type="text" id="newName">
         </div>
-        ${r.status === 'Denied' && r.denialReason ? `
-          <div class="field">
-            <label>Reason for denial</label>
-            <div class="small" style="padding:10px; background:var(--bg); border-radius:8px;">
-              ${escapeHtml(r.denialReason)}
-            </div>
-          </div>
-        ` : ''}
-                
-          <div class="field">
-          <label>Funding sources</label>
-          <div class="source-list">${sourcesHTML}</div>
+
+        <div class="field" style="margin-bottom:0;">
+          <label>Code</label>
+          <input
+            type="text"
+            id="newCode"
+            placeholder="e.g. sp1282"
+          >
         </div>
-        ${photoHTML}
+
+        <div class="field" style="margin-bottom:0;">
+          <label>Email (for reminders)</label>
+          <input type="email" id="newEmail">
+        </div>
+
       </div>
+
+      <button
+        class="btn btn-outline"
+        id="addMemberBtn"
+        type="button"
+        style="margin-top:12px;"
+      >
+        + Add board member
+      </button>
+
+      <div
+        id="rosterError"
+        class="error-box"
+        style="display:none; margin-top:14px;"
+      ></div>
+
+      <table class="admin-table" style="margin-top:18px;">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Code</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody id="rosterBody"></tbody>
+      </table>
+
     </div>
-  `;
-}
 
-async function changeStatus(id, status, denialReason = '') {
-  try {
-    const payload = {
-      id: id,
-      status: status
-    };
 
-    if (status === 'Denied') {
-      payload.denialReason = denialReason;
+    <!-- ==================== FILTERS ==================== -->
+
+    <div class="filters">
+
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="Search event or requester..."
+      >
+
+      <select id="statusFilter">
+        <option value="">All statuses</option>
+        <option>Not Yet Requested</option>
+        <option>Requested</option>
+        <option>Approved</option>
+        <option>Denied</option>
+        <option>Too Late to Request</option>
+      </select>
+
+    </div>
+
+
+    <!-- ==================== REQUEST LISTS ==================== -->
+
+    <div class="eyebrow">
+      Too late to request
+      <span class="count" id="cnt-toolate"></span>
+    </div>
+
+    <div class="entry-list" id="list-toolate"></div>
+
+
+    <div class="eyebrow">
+      Needs to be requested
+      <span class="count" id="cnt-needs"></span>
+    </div>
+
+    <div class="entry-list" id="list-needs"></div>
+
+
+    <div class="eyebrow">
+      Requested
+      <span class="count" id="cnt-requested"></span>
+    </div>
+
+    <div class="entry-list" id="list-requested"></div>
+
+
+    <div class="eyebrow">
+      Approved
+      <span class="count" id="cnt-approved"></span>
+    </div>
+
+    <div class="entry-list" id="list-approved"></div>
+
+
+    <div class="eyebrow">
+      Denied
+      <span class="count" id="cnt-denied"></span>
+    </div>
+
+    <div class="entry-list" id="list-denied"></div>
+
+
+    <div class="eyebrow">
+      Past events
+      <span class="count" id="cnt-past"></span>
+    </div>
+
+    <div class="entry-list" id="list-past"></div>
+
+  </div>
+
+
+  <!-- ==================== DENIAL MODAL ==================== -->
+
+  <div
+    id="denial-modal"
+    class="modal-overlay"
+    style="display:none;"
+  >
+
+    <div class="modal-card">
+
+      <h2>Deny Funding Request</h2>
+
+      <p>
+        Please provide a reason for denying this funding request.
+        This reason will be saved and sent to the member by email.
+      </p>
+
+      <label for="denial-reason">
+        Reason for denial
+      </label>
+
+      <textarea
+        id="denial-reason"
+        rows="5"
+        placeholder="Enter the reason for denying this request..."
+      ></textarea>
+
+      <div
+        id="denial-error"
+        class="error-text"
+        style="display:none;"
+      ></div>
+
+      <div class="modal-actions">
+
+        <button
+          type="button"
+          id="denial-cancel"
+          class="secondary-button"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          id="denial-confirm"
+          class="danger-button"
+        >
+          Deny Request
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ==================== SCRIPTS ==================== -->
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/funding-rules.js"></script>
+  <script src="js/entries.js"></script>
+
+  <script>
+
+    // ============================================================
+    // INITIAL STATE
+    // ============================================================
+
+    const admin = Session_.requireAdmin();
+
+    let allRequests = [];
+    let allMembers = [];
+    let pendingDenial = null;
+
+    const STATUS_OPTIONS = [
+      'Not Yet Requested',
+      'Requested',
+      'Approved',
+      'Denied',
+      'Too Late to Request'
+    ];
+
+    const LIST_IDS = [
+      'list-toolate',
+      'list-needs',
+      'list-requested',
+      'list-approved',
+      'list-denied',
+      'list-past'
+    ];
+
+
+    // ============================================================
+    // GENERAL HELPERS
+    // ============================================================
+
+    function showError(msg) {
+      const e = document.getElementById('errorBox');
+
+      e.textContent = msg || 'An unexpected error occurred.';
+      e.style.display = 'block';
     }
 
-    await callApi(
-      'updateStatus',
-      Object.assign(payload, admin)
-    );
 
-    const r = allRequests.find(x => x.id === id);
+    function hideError() {
+      const e = document.getElementById('errorBox');
 
-    if (r) {
-      r.status = status;
+      e.textContent = '';
+      e.style.display = 'none';
+    }
 
-      if (status === 'Denied') {
-        r.denialReason = denialReason;
+
+    function showLoading() {
+
+      LIST_IDS.forEach(id => {
+
+        const el = document.getElementById(id);
+
+        if (el) {
+          el.innerHTML =
+            '<div class="loading-note">' +
+              '<span class="spinner"></span>' +
+              'Loading…' +
+            '</div>';
+        }
+
+      });
+
+
+      const rosterBody = document.getElementById('rosterBody');
+
+      if (rosterBody) {
+        rosterBody.innerHTML =
+          '<tr>' +
+            '<td colspan="5" class="loading-note">' +
+              '<span class="spinner"></span>' +
+              'Loading…' +
+            '</td>' +
+          '</tr>';
       }
     }
 
-    applyFiltersAndRender();
-  } catch (e) {
-    if (status === 'Denied') {
-      throw e;
+
+    // ============================================================
+    // LOGOUT
+    // ============================================================
+
+    document
+      .getElementById('logoutBtn')
+      .addEventListener('click', () => {
+
+        try {
+          Session_.logout();
+        } catch (e) {
+          showError(e.message || 'Unable to log out.');
+        }
+
+      });
+
+
+    // ============================================================
+    // ROSTER TOGGLE
+    // ============================================================
+
+    document
+      .getElementById('toggleRoster')
+      .addEventListener('click', () => {
+
+        const el = document.getElementById('rosterCard');
+
+        if (el.style.display === 'none' || !el.style.display) {
+          el.style.display = 'block';
+        } else {
+          el.style.display = 'none';
+        }
+
+      });
+
+
+    // ============================================================
+    // LOAD DATA
+    // ============================================================
+
+    async function loadAll() {
+
+      hideError();
+      showLoading();
+
+      try {
+
+        const [reqRes, memRes] = await Promise.all([
+          callApi('getAllRequests', admin),
+          callApi('getBoardMembers', admin)
+        ]);
+
+
+        allRequests =
+          Array.isArray(reqRes.requests)
+            ? reqRes.requests
+            : [];
+
+
+        allMembers =
+          Array.isArray(memRes.members)
+            ? memRes.members
+            : [];
+
+
+        renderRoster();
+        applyFiltersAndRender();
+
+      } catch (e) {
+
+        console.error('loadAll error:', e);
+
+        showError(
+          e.message ||
+          'Unable to load funding requests.'
+        );
+
+
+        LIST_IDS.forEach(id => {
+
+          const el = document.getElementById(id);
+
+          if (el) {
+            el.innerHTML = '';
+          }
+
+        });
+
+
+        const rosterBody =
+          document.getElementById('rosterBody');
+
+        if (rosterBody) {
+          rosterBody.innerHTML = '';
+        }
+
+      }
+
     }
 
-    showError(e.message);
-  }
-}
-async function saveFundingSources(id, panelEl) {
-  const fundingSources = Array.from(panelEl.querySelectorAll('.source-checkbox'))
-    .filter(cb => cb.checked)
-    .map(cb => cb.dataset.id);
-  try {
-    await callApi('updateFundingSources', Object.assign({ id, fundingSources }, admin));
-    const r = allRequests.find(x => x.id === id);
-    r.fundingSources = ['Projects Board', ...fundingSources.filter(s => s !== 'Projects Board')];
-  } catch (e) { showError(e.message); }
-}
 
-function openDenialModal(id, previousStatus) {
-  pendingDenial = {
-    id: id,
-    previousStatus: previousStatus
-  };
+    // ============================================================
+    // ROSTER
+    // ============================================================
 
-  const reasonInput = document.getElementById('denial-reason');
-  const error = document.getElementById('denial-error');
+    function renderRoster() {
 
-  reasonInput.value = '';
-  error.textContent = '';
-  error.style.display = 'none';
+      const body =
+        document.getElementById('rosterBody');
 
-  document.getElementById('denial-modal').style.display = 'flex';
 
-  setTimeout(() => reasonInput.focus(), 0);
-}
+      if (!allMembers.length) {
 
-function closeDenialModal() {
-  document.getElementById('denial-modal').style.display = 'none';
-  pendingDenial = null;
-}
-  
-loadAll();
-</script>
-<div id="denial-modal" class="modal-overlay" style="display: none;">
-  <div class="modal-card">
-    <h2>Deny Funding Request</h2>
+        body.innerHTML =
+          '<tr>' +
+            '<td colspan="5" class="empty-note">' +
+              'No board members found.' +
+            '</td>' +
+          '</tr>';
 
-    <p>
-      Please provide a reason for denying this funding request.
-      This reason will be saved and sent to the member by email.
-    </p>
+        return;
+      }
 
-    <label for="denial-reason">Reason for denial</label>
 
-    <textarea
-      id="denial-reason"
-      rows="5"
-      placeholder="Enter the reason for denying this request..."
-    ></textarea>
+      body.innerHTML = allMembers.map(m => {
 
-    <div id="denial-error" class="error-text" style="display: none;"></div>
+        const inactive =
+          m.Active === false ||
+          m.Active === 'FALSE' ||
+          m.Active === 'false' ||
+          m.Active === 0 ||
+          m.Active === '0';
 
-    <div class="modal-actions">
-      <button type="button" id="denial-cancel" class="secondary-button">
-        Cancel
-      </button>
 
-      <button type="button" id="denial-confirm" class="danger-button">
-        Deny Request
-      </button>
-    </div>
-  </div>
-</div>
-  
-  
+        const active =
+          !inactive;
+
+
+        return `
+          <tr>
+
+            <td>
+              ${escapeHtml(m.Name || '')}
+            </td>
+
+            <td class="mono">
+              ${escapeHtml(m.Code || '')}
+            </td>
+
+            <td>
+              ${escapeHtml(m.Email || '—')}
+            </td>
+
+            <td>
+              ${
+                active
+                  ? '<span class="stamp stamp-approved">active</span>'
+                  : '<span class="stamp stamp-toolate">inactive</span>'
+              }
+            </td>
+
+            <td>
+              <button
+                type="button"
+                class="link-btn"
+                data-code="${escapeHtml(m.Code || '')}"
+                data-active="${active}"
+              >
+                ${active ? 'deactivate' : 'reactivate'}
+              </button>
+            </td>
+
+          </tr>
+        `;
+
+      }).join('');
+
+
+      // Attach listeners AFTER the rows have been created.
+      body
+        .querySelectorAll('.link-btn')
+        .forEach(btn => {
+
+          btn.addEventListener('click', () => {
+            toggleActive(btn);
+          });
+
+        });
+
+    }
+
+
+    async function toggleActive(btn) {
+
+      const code = btn.dataset.code;
+      const nowActive = btn.dataset.active === 'true';
+
+
+      if (!code) {
+        showError('Board member code is missing.');
+        return;
+      }
+
+
+      btn.disabled = true;
+
+
+      try {
+
+        await callApi(
+          'setMemberActive',
+          Object.assign(
+            {
+              code: code,
+              active: !nowActive
+            },
+            admin
+          )
+        );
+
+
+        await loadAll();
+
+      } catch (e) {
+
+        console.error('toggleActive error:', e);
+
+        showError(
+          e.message ||
+          'Unable to update board member.'
+        );
+
+        btn.disabled = false;
+      }
+
+    }
+
+
+    // ============================================================
+    // ADD BOARD MEMBER
+    // ============================================================
+
+    document
+      .getElementById('addMemberBtn')
+      .addEventListener('click', async () => {
+
+        const name =
+          document
+            .getElementById('newName')
+            .value
+            .trim();
+
+
+        const code =
+          document
+            .getElementById('newCode')
+            .value
+            .trim();
+
+
+        const email =
+          document
+            .getElementById('newEmail')
+            .value
+            .trim();
+
+
+        const errBox =
+          document.getElementById('rosterError');
+
+
+        errBox.style.display = 'none';
+        errBox.textContent = '';
+
+
+        if (!name || !code) {
+
+          errBox.textContent =
+            'Name and code are required.';
+
+          errBox.style.display = 'block';
+
+          return;
+        }
+
+
+        const btn =
+          document.getElementById('addMemberBtn');
+
+
+        btn.disabled = true;
+
+
+        try {
+
+          await callApi(
+            'addBoardMember',
+            Object.assign(
+              {
+                name: name,
+                code: code,
+                email: email
+              },
+              admin
+            )
+          );
+
+
+          document.getElementById('newName').value = '';
+          document.getElementById('newCode').value = '';
+          document.getElementById('newEmail').value = '';
+
+
+          await loadAll();
+
+        } catch (e) {
+
+          console.error('addMember error:', e);
+
+          errBox.textContent =
+            e.message ||
+            'Unable to add board member.';
+
+          errBox.style.display = 'block';
+
+        } finally {
+
+          btn.disabled = false;
+
+        }
+
+      });
+
+
+    // ============================================================
+    // SEARCH / FILTER
+    // ============================================================
+
+    document
+      .getElementById('searchInput')
+      .addEventListener(
+        'input',
+        applyFiltersAndRender
+      );
+
+
+    document
+      .getElementById('statusFilter')
+      .addEventListener(
+        'change',
+        applyFiltersAndRender
+      );
+
+
+    function applyFiltersAndRender() {
+
+      const q =
+        document
+          .getElementById('searchInput')
+          .value
+          .trim()
+          .toLowerCase();
+
+
+      const statusF =
+        document
+          .getElementById('statusFilter')
+          .value;
+
+
+      const filtered =
+        allRequests.filter(r => {
+
+          if (
+            statusF &&
+            r.status !== statusF
+          ) {
+            return false;
+          }
+
+
+          if (q) {
+
+            const eventName =
+              String(r.eventName || '')
+                .toLowerCase();
+
+
+            const name =
+              String(r.name || '')
+                .toLowerCase();
+
+
+            const code =
+              String(r.code || '')
+                .toLowerCase();
+
+
+            if (
+              !eventName.includes(q) &&
+              !name.includes(q) &&
+              !code.includes(q)
+            ) {
+              return false;
+            }
+
+          }
+
+
+          return true;
+
+        });
+
+
+      render(
+        groupRequestsAdmin(filtered)
+      );
+
+    }
+
+
+    // ============================================================
+    // REQUEST SECTIONS
+    // ============================================================
+
+    function section(
+      listId,
+      countId,
+      items,
+      emptyMsg,
+      deadlineNote
+    ) {
+
+      const count =
+        document.getElementById(countId);
+
+
+      const el =
+        document.getElementById(listId);
+
+
+      count.textContent =
+        items.length
+          ? '(' + items.length + ')'
+          : '';
+
+
+      if (!items.length) {
+
+        el.innerHTML =
+          '<div class="empty-note">' +
+            escapeHtml(emptyMsg) +
+          '</div>';
+
+        return;
+      }
+
+
+      el.innerHTML =
+        items.map(r => {
+
+          const safeId =
+            String(r.id);
+
+
+          return `
+            <div>
+
+              <div
+                class="entry"
+                style="cursor:pointer;"
+                data-request-id="${escapeHtml(safeId)}"
+              >
+                ${renderEntryHTML(
+                  r,
+                  {
+                    deadlineNote: deadlineNote,
+                    showRequester: true
+                  }
+                )}
+              </div>
+
+
+              <div
+                id="detail-${escapeHtml(safeId)}"
+                style="
+                  display:none;
+                  padding:16px 4px 24px 4px;
+                  border-bottom:1px solid var(--line);
+                "
+              ></div>
+
+            </div>
+          `;
+
+        }).join('');
+
+
+      // Attach request-click handlers after rendering.
+      el
+        .querySelectorAll('.entry')
+        .forEach(entry => {
+
+          entry.addEventListener('click', () => {
+
+            const id =
+              entry.dataset.requestId;
+
+            toggleDetail(id);
+
+          });
+
+        });
+
+    }
+
+
+    function render(groups) {
+
+      section(
+        'list-toolate',
+        'cnt-toolate',
+        groups.tooLate || [],
+        'Nothing flagged as too late.',
+        true
+      );
+
+
+      section(
+        'list-needs',
+        'cnt-needs',
+        groups.needsAction || [],
+        'Nothing pending.',
+        true
+      );
+
+
+      section(
+        'list-requested',
+        'cnt-requested',
+        groups.requested || [],
+        'Nothing currently requested.',
+        false
+      );
+
+
+      section(
+        'list-approved',
+        'cnt-approved',
+        groups.approved || [],
+        'Nothing approved yet.',
+        false
+      );
+
+
+      section(
+        'list-denied',
+        'cnt-denied',
+        groups.denied || [],
+        'Nothing denied.',
+        false
+      );
+
+
+      section(
+        'list-past',
+        'cnt-past',
+        groups.past || [],
+        'No past events yet.',
+        false
+      );
+
+    }
+
+
+    // ============================================================
+    // REQUEST DETAIL
+    // ============================================================
+
+    function toggleDetail(id) {
+
+      const el =
+        document.getElementById(
+          'detail-' + id
+        );
+
+
+      if (!el) {
+        console.error(
+          'Detail element not found:',
+          id
+        );
+
+        return;
+      }
+
+
+      const open =
+        el.style.display === 'block';
+
+
+      // Close all other details.
+      document
+        .querySelectorAll('[id^="detail-"]')
+        .forEach(d => {
+
+          d.style.display = 'none';
+
+        });
+
+
+      if (open) {
+        return;
+      }
+
+
+      const r =
+        allRequests.find(
+          x => String(x.id) === String(id)
+        );
+
+
+      if (!r) {
+
+        showError(
+          'Could not find this request.'
+        );
+
+        return;
+      }
+
+
+      el.innerHTML =
+        detailHTML(r);
+
+
+      el.style.display = 'block';
+
+
+      // ----------------------------------------------------------
+      // STATUS DROPDOWN
+      // ----------------------------------------------------------
+
+      const statusSelect =
+        document.getElementById(
+          'status-' + id
+        );
+
+
+      if (statusSelect) {
+
+        statusSelect.addEventListener(
+          'change',
+          async e => {
+
+            const newStatus =
+              e.target.value;
+
+
+            const request =
+              allRequests.find(
+                r =>
+                  String(r.id) ===
+                  String(id)
+              );
+
+
+            if (!request) {
+              return;
+            }
+
+
+            // Denial requires a reason.
+            if (newStatus === 'Denied') {
+
+              openDenialModal(
+                id,
+                request.status
+              );
+
+              return;
+            }
+
+
+            await changeStatus(
+              id,
+              newStatus
+            );
+
+          }
+        );
+
+      }
+
+
+      // ----------------------------------------------------------
+      // FUNDING SOURCE CHECKBOXES
+      // ----------------------------------------------------------
+
+      el
+        .querySelectorAll('.source-checkbox')
+        .forEach(cb => {
+
+          cb.addEventListener(
+            'change',
+            () => {
+
+              saveFundingSources(
+                id,
+                el
+              );
+
+            }
+          );
+
+        });
+
+    }
+
+
+    // ============================================================
+    // REQUEST DETAIL HTML
+    // ============================================================
+
+    function detailHTML(r) {
+
+      const items =
+        Array.isArray(r.items)
+          ? r.items
+          : [];
+
+
+      const itemsHTML =
+        items.map(it => {
+
+          const name =
+            it.name ||
+            it.desc ||
+            '';
+
+
+          const quantity =
+            it.quantity == null ||
+            it.quantity === ''
+              ? 1
+              : Number(it.quantity);
+
+
+          const unitCost =
+            it.unitCost == null ||
+            it.unitCost === ''
+              ? Number(it.amount || 0)
+              : Number(it.unitCost);
+
+
+          const total =
+            it.total == null ||
+            it.total === ''
+              ? quantity * unitCost
+              : Number(it.total);
+
+
+          return `
+            <div
+              class="between small itemized-admin-line"
+            >
+
+              <span>
+                ${escapeHtml(name)}
+
+                <span class="mono">
+                  (${fmtMoney(unitCost)}/count)
+                </span>
+
+                x ${quantity}
+              </span>
+
+              <span class="mono">
+                = ${fmtMoney(total)}
+              </span>
+
+            </div>
+          `;
+
+        }).join('');
+
+
+      const photoHTML =
+        r.photoUrl
+          ? `
+            <p class="small">
+              <a
+                href="${escapeHtml(r.photoUrl)}"
+                target="_blank"
+                rel="noopener"
+              >
+                View uploaded photo →
+              </a>
+            </p>
+          `
+          : `
+            <p class="small">
+              No photo uploaded yet.
+            </p>
+          `;
+
+
+      const alcoholSuggested =
+        suggestsAlcoholInitiative(
+          r.eventDate,
+          r.startTime,
+          r.endTime
+        );
+
+
+      const fundingSources =
+        Array.isArray(r.fundingSources)
+          ? r.fundingSources
+          : [];
+
+
+      const sourcesHTML =
+        FUNDING_SOURCES.map(src => {
+
+          const checked =
+            fundingSources.includes(
+              src.id
+            );
+
+
+          const suggestHint =
+            src.id === 'Alcohol Initiative' &&
+            alcoholSuggested &&
+            !checked
+              ? ' <span style="color:var(--orange)">— suggested by date/time</span>'
+              : '';
+
+
+          return `
+            <label
+              class="source-item ${src.locked ? 'locked' : ''}"
+              style="padding:7px 10px;"
+            >
+
+              <input
+                type="checkbox"
+                class="source-checkbox"
+                data-id="${escapeHtml(src.id)}"
+                ${checked ? 'checked' : ''}
+                ${src.locked ? 'disabled' : ''}
+              >
+
+              <div>
+                <div
+                  class="label"
+                  style="font-size:0.85rem;"
+                >
+                  ${escapeHtml(src.label)}
+                  ${suggestHint}
+                </div>
+              </div>
+
+            </label>
+          `;
+
+        }).join('');
+
+
+      return `
+        <div class="row2">
+
+          <!-- LEFT SIDE -->
+          <div>
+
+            <p
+              class="small"
+              style="margin-bottom:6px;"
+            >
+              <strong>Location</strong>
+            </p>
+
+            <p class="small">
+              ${escapeHtml(r.location || '—')}
+
+              ${
+                r.locationReserved
+                  ? '<span class="stamp stamp-approved">reserved</span>'
+                  : '<span class="stamp stamp-toolate">not reserved</span>'
+              }
+            </p>
+
+
+            <p
+              class="small"
+              style="margin-bottom:6px;"
+            >
+              <strong>Estimated attendance</strong>
+            </p>
+
+            <p class="small">
+              ${escapeHtml(String(r.estAttendance || '—'))}
+            </p>
+
+
+            <p
+              class="small"
+              style="margin-bottom:6px;"
+            >
+              <strong>Approximate schedule</strong>
+            </p>
+
+            <p class="small">
+              ${escapeHtml(r.schedule || '—')}
+            </p>
+
+
+            <p
+              class="small"
+              style="margin-bottom:6px;"
+            >
+              <strong>Agenda</strong>
+            </p>
+
+            <p class="small">
+              ${escapeHtml(r.agenda || '—')}
+            </p>
+
+
+            <p
+              class="small"
+              style="margin-bottom:6px;"
+            >
+              <strong>Itemized costs</strong>
+            </p>
+
+            ${
+              itemsHTML ||
+              '<p class="small">No itemized costs provided.</p>'
+            }
+
+          </div>
+
+
+          <!-- RIGHT SIDE -->
+          <div>
+
+            <div class="field">
+
+              <label>Status</label>
+
+              <select id="status-${escapeHtml(String(r.id))}">
+
+                ${STATUS_OPTIONS.map(s => `
+                  <option
+                    value="${escapeHtml(s)}"
+                    ${s === r.status ? 'selected' : ''}
+                  >
+                    ${escapeHtml(s)}
+                  </option>
+                `).join('')}
+
+              </select>
+
+            </div>
+
+
+            ${
+              r.status === 'Denied' &&
+              r.denialReason
+                ? `
+                  <div class="field">
+
+                    <label>
+                      Reason for denial
+                    </label>
+
+                    <div
+                      class="small"
+                      style="
+                        padding:10px;
+                        background:var(--bg);
+                        border-radius:8px;
+                      "
+                    >
+                      ${escapeHtml(r.denialReason)}
+                    </div>
+
+                  </div>
+                `
+                : ''
+            }
+
+
+            <div class="field">
+
+              <label>
+                Funding sources
+              </label>
+
+              <div class="source-list">
+                ${sourcesHTML}
+              </div>
+
+            </div>
+
+
+            ${photoHTML}
+
+          </div>
+
+        </div>
+      `;
+
+    }
+
+
+    // ============================================================
+    // CHANGE STATUS
+    // ============================================================
+
+    async function changeStatus(
+      id,
+      status,
+      denialReason = ''
+    ) {
+
+      try {
+
+        const payload = {
+          id: id,
+          status: status
+        };
+
+
+        if (status === 'Denied') {
+          payload.denialReason =
+            denialReason;
+        }
+
+
+        await callApi(
+          'updateStatus',
+          Object.assign(
+            payload,
+            admin
+          )
+        );
+
+
+        const r =
+          allRequests.find(
+            x =>
+              String(x.id) ===
+              String(id)
+          );
+
+
+        if (r) {
+
+          r.status = status;
+
+
+          if (status === 'Denied') {
+
+            r.denialReason =
+              denialReason;
+
+          } else {
+
+            r.denialReason = '';
+
+          }
+
+        }
+
+
+        applyFiltersAndRender();
+
+      } catch (e) {
+
+        console.error(
+          'changeStatus error:',
+          e
+        );
+
+
+        if (status === 'Denied') {
+          throw e;
+        }
+
+
+        showError(
+          e.message ||
+          'Unable to update request status.'
+        );
+
+      }
+
+    }
+
+
+    // ============================================================
+    // FUNDING SOURCES
+    // ============================================================
+
+    async function saveFundingSources(
+      id,
+      panelEl
+    ) {
+
+      const fundingSources =
+        Array.from(
+          panelEl.querySelectorAll(
+            '.source-checkbox'
+          )
+        )
+        .filter(cb => cb.checked)
+        .map(cb => cb.dataset.id);
+
+
+      try {
+
+        await callApi(
+          'updateFundingSources',
+          Object.assign(
+            {
+              id: id,
+              fundingSources:
+                fundingSources
+            },
+            admin
+          )
+        );
+
+
+        const r =
+          allRequests.find(
+            x =>
+              String(x.id) ===
+              String(id)
+          );
+
+
+        if (r) {
+
+          r.fundingSources = [
+            'Projects Board',
+            ...fundingSources.filter(
+              s => s !== 'Projects Board'
+            )
+          ];
+
+        }
+
+      } catch (e) {
+
+        console.error(
+          'saveFundingSources error:',
+          e
+        );
+
+        showError(
+          e.message ||
+          'Unable to save funding sources.'
+        );
+
+      }
+
+    }
+
+
+    // ============================================================
+    // DENIAL MODAL
+    // ============================================================
+
+    function openDenialModal(
+      id,
+      previousStatus
+    ) {
+
+      pendingDenial = {
+        id: id,
+        previousStatus:
+          previousStatus
+      };
+
+
+      const reasonInput =
+        document.getElementById(
+          'denial-reason'
+        );
+
+
+      const error =
+        document.getElementById(
+          'denial-error'
+        );
+
+
+      reasonInput.value = '';
+
+      error.textContent = '';
+
+      error.style.display = 'none';
+
+
+      document.getElementById(
+        'denial-modal'
+      ).style.display = 'flex';
+
+
+      setTimeout(
+        () => reasonInput.focus(),
+        0
+      );
+
+    }
+
+
+    function closeDenialModal() {
+
+      document.getElementById(
+        'denial-modal'
+      ).style.display = 'none';
+
+
+      pendingDenial = null;
+
+    }
+
+
+    // ============================================================
+    // DENIAL CANCEL BUTTON
+    // ============================================================
+    //
+    // IMPORTANT:
+    // This listener is deliberately OUTSIDE toggleDetail().
+    // Previously it was being registered inside the status
+    // dropdown's change handler.
+    // ============================================================
+
+    document
+      .getElementById('denial-cancel')
+      .addEventListener(
+        'click',
+        () => {
+
+          if (!pendingDenial) {
+            closeDenialModal();
+            return;
+          }
+
+
+          const {
+            id,
+            previousStatus
+          } = pendingDenial;
+
+
+          const select =
+            document.getElementById(
+              'status-' + id
+            );
+
+
+          if (select) {
+            select.value =
+              previousStatus;
+          }
+
+
+          closeDenialModal();
+
+        }
+      );
+
+
+    // ============================================================
+    // DENIAL CONFIRM BUTTON
+    // ============================================================
+    //
+    // Also deliberately registered once, outside toggleDetail().
+    // ============================================================
+
+    document
+      .getElementById('denial-confirm')
+      .addEventListener(
+        'click',
+        async () => {
+
+          if (!pendingDenial) {
+            return;
+          }
+
+
+          const reasonInput =
+            document.getElementById(
+              'denial-reason'
+            );
+
+
+          const error =
+            document.getElementById(
+              'denial-error'
+            );
+
+
+          const reason =
+            reasonInput.value.trim();
+
+
+          if (!reason) {
+
+            error.textContent =
+              'Please enter a reason for the denial.';
+
+            error.style.display =
+              'block';
+
+            reasonInput.focus();
+
+            return;
+          }
+
+
+          const {
+            id
+          } = pendingDenial;
+
+
+          const confirmBtn =
+            document.getElementById(
+              'denial-confirm'
+            );
+
+
+          confirmBtn.disabled = true;
+
+
+          try {
+
+            await changeStatus(
+              id,
+              'Denied',
+              reason
+            );
+
+
+            closeDenialModal();
+
+          } catch (e) {
+
+            console.error(
+              'denial error:',
+              e
+            );
+
+
+            error.textContent =
+              e.message ||
+              'Unable to deny this request.';
+
+            error.style.display =
+              'block';
+
+          } finally {
+
+            confirmBtn.disabled = false;
+
+          }
+
+        }
+      );
+
+
+    // ============================================================
+    // CLOSE MODAL WHEN CLICKING OUTSIDE
+    // ============================================================
+
+    document
+      .getElementById('denial-modal')
+      .addEventListener(
+        'click',
+        e => {
+
+          if (
+            e.target.id ===
+            'denial-modal'
+          ) {
+            closeDenialModal();
+          }
+
+        }
+      );
+
+
+    // ============================================================
+    // INITIAL LOAD
+    // ============================================================
+
+    loadAll();
+
+  </script>
+
 </body>
 </html>
+```
+
+This version specifically fixes the event-handler problem that was preventing the buttons from responding. It also removes the inline `onclick` handlers from dynamically generated roster/request elements and attaches listeners after those elements are rendered, which is more reliable.
+
+**Important:** the code above assumes the `\` characters in your pasted code were just formatting/escaping from the message. Do **not** put backslashes before `<`, `>`, `&`, etc. in the actual `admin.html` file.
+  
