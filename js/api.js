@@ -2,14 +2,42 @@ async function callApi(action, payload) {
   if (!BACKEND_URL || BACKEND_URL.indexOf('PASTE_YOUR') === 0) {
     throw new Error('The site is not connected to a backend yet. See SETUP.md.');
   }
+
   const res = await fetch(BACKEND_URL, {
     method: 'POST',
     // text/plain avoids a CORS preflight request, which Apps Script can't answer.
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(Object.assign({ action }, payload)),
   });
-  if (!res.ok) throw new Error('Network error talking to the backend.');
-  const data = await res.json();
+
+  const raw = await res.text();
+
+  if (!res.ok) {
+    throw new Error(
+      'Backend request failed (' + res.status + ').' +
+      (raw ? ' ' + raw.slice(0, 300) : '')
+    );
+  }
+
+  if (!raw.trim()) {
+    throw new Error(
+      'The backend returned an empty response for "' + action + '". ' +
+      'The Apps Script web app may have an error or may need to be redeployed.'
+    );
+  }
+
+  let data;
+
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    console.error('Invalid backend response:', raw);
+    throw new Error(
+      'The backend returned invalid JSON for "' + action + '". ' +
+      'Response: ' + raw.slice(0, 300)
+    );
+  }
+
   if (!data.ok) throw new Error(data.error || 'Something went wrong.');
   return data;
 }
